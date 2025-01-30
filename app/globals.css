@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 25% 25%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 25% 25%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 25% 25%;
+
+    /* Updated primary color to match Docta's purple */
+    --primary: 255 84% 69%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Updated secondary color to lighter purple */
+    --secondary: 252 74% 69%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 25% 25%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 255 84% 69%;
+
+    --radius: 0.75rem;
+
+    /* Specialty card colors */
+    --specialty-1: 207 84% 52%;
+    --specialty-2: 45 93% 47%;
+    --specialty-3: 155 64% 42%;
+    --specialty-4: 322 81% 43%;
+    --specialty-5: 187 100% 42%;
+    --specialty-6: 280 87% 65%;
+  }
+
+  .dark {
+    --background: 240 25% 8%;
+    --foreground: 0 0% 100%;
+
+    --card: 240 25% 8%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 240 25% 8%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 255 84% 69%;
+    --primary-foreground: 240 25% 8%;
+
+    --secondary: 252 74% 69%;
+    --secondary-foreground: 240 25% 8%;
+
+    --muted: 240 25% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 25% 16%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 25% 16%;
+    --input: 240 25% 16%;
+    --ring: 255 84% 69%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
