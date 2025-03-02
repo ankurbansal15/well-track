@@ -2,21 +2,26 @@
 
 import type React from "react"
 
-import { useSession } from "@supabase/auth-helpers-react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter()
-  const session = useSession()
+  const { data: session, status } = useSession()
+  const loading = status === "loading"
 
   useEffect(() => {
-    if (session === null) {
+    if (!loading && !session) {
       router.push("/login")
     }
-  }, [session, router])
+  }, [session, loading, router])
 
-  if (session === null) {
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (!session) {
     return null
   }
 

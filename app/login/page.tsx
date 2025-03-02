@@ -1,16 +1,16 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
 import { AtSign, Lock, ArrowRight, AlertCircle, Loader2, Home } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { signIn, useSession } from "next-auth/react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -18,6 +18,27 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { data: session, status } = useSession()
+  
+  // If user is already logged in, redirect to dashboard
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard")
+    }
+  }, [status, router])
+  
+  // Check for error from URL (e.g., from NextAuth)
+  useEffect(() => {
+    const errorFromUrl = searchParams.get("error")
+    if (errorFromUrl) {
+      if (errorFromUrl === "CredentialsSignin") {
+        setError("Invalid email or password")
+      } else {
+        setError(`Authentication error: ${errorFromUrl}`)
+      }
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,50 +46,34 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const result = await signIn("credentials", {
+        redirect: false,
         email,
         password,
       })
 
-      if (authError) {
-        setError(authError.message)
-      } else if (authData.user) {
-        // Check if the user has a profile
-        const { data: profileData, error: profileError } = await supabase
-          .from("user_profiles")
-          .select("initial_health_data_submitted")
-          .eq("id", authData.user.id)
-          .single()
-
-        if (profileError) {
-          if (profileError.code === "PGRST116") {
-            // Profile doesn't exist, create one
-            const { error: createProfileError } = await supabase
-              .from("user_profiles")
-              .insert([{ id: authData.user.id, initial_health_data_submitted: false }])
-
-            if (createProfileError) {
-              console.error("Error creating user profile:", createProfileError)
-              setError("An error occurred while setting up your account. Please try again.")
-            } else {
-              router.push("/initial-health-form")
-            }
-          } else {
-            console.error("Error fetching user profile:", profileError)
-            setError("An error occurred while logging in. Please try again.")
-          }
-        } else if (!profileData.initial_health_data_submitted) {
-          router.push("/initial-health-form")
-        } else {
-          router.push("/dashboard")
-        }
+      if (result?.error) {
+        setError("Invalid email or password")
+      } else {
+        // Successfully signed in
+        router.push("/dashboard")
+        router.refresh() // Force a refresh to update session state
       }
     } catch (err) {
+      console.error("Login error:", err)
       setError("An unexpected error occurred. Please try again later.")
-      console.error(err)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // If still checking authentication status, show loading
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -95,7 +100,7 @@ export default function LoginPage() {
             <p className="mt-2 text-muted-foreground">Sign in to your WellTrack account</p>
           </div>
           
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-4">
               <div className="relative">
                 <Label htmlFor="email" className="text-sm font-medium block mb-1.5">
@@ -161,6 +166,34 @@ export default function LoginPage() {
               )}
             </Button>
             
+            <div className="relative flex items-center justify-center my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+              </div>
+              <div className="relative px-4 bg-background text-sm text-muted-foreground">Or continue with</div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="h-11"
+                onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              >
+                <Image src="/google-logo.svg" alt="Google" width={18} height={18} className="mr-2" />
+                Google
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="h-11"
+                onClick={() => signIn('github', { callbackUrl: '/dashboard' })}
+              >
+                <Image src="/github-logo.svg" alt="GitHub" width={18} height={18} className="mr-2" />
+                GitHub
+              </Button>
+            </div>
+            
             <div className="text-center">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
@@ -174,7 +207,7 @@ export default function LoginPage() {
       </motion.div>
       
       {/* Right panel - Illustration/Branding */}
-      <motion.div 
+      <motion.div
         className="hidden md:flex md:w-1/2 bg-gradient-to-tr from-primary/90 to-primary items-center justify-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

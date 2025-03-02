@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
-import { SiteHeader } from "@/components/site-header"
-import { SiteFooter } from "@/components/site-footer"
 import { AtSign, Lock, User, ArrowRight, AlertCircle, Loader2, CheckCircle, Home } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
+import { signIn } from "next-auth/react"
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -52,33 +50,40 @@ export default function SignupPage() {
     setIsLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // Register the user
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to register');
+      }
+
+      // Sign in the user
+      const result = await signIn('credentials', {
+        redirect: false,
         email: formData.email,
         password: formData.password,
-      })
+      });
 
-      if (error) {
-        setError(error.message)
-      } else if (data.user) {
-        // Create a user profile
-        const { error: profileError } = await supabase
-          .from("user_profiles")
-          .insert([{ 
-            id: data.user.id, 
-            email: data.user.email,
-            display_name: formData.name, 
-          }])
-
-        if (profileError) {
-          console.error("Error creating user profile:", profileError)
-          setError("An error occurred while creating your profile.")
-        } else {
-          // Redirect to the initial health data form
-          router.push("/initial-health-form")
-        }
+      if (result?.error) {
+        throw new Error('Failed to sign in after registration');
       }
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again later.")
+
+      // Redirect to the initial health form
+      router.push('/initial-health-form');
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred. Please try again later.")
       console.error(err)
     } finally {
       setIsLoading(false)

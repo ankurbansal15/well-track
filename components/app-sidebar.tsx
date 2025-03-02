@@ -28,22 +28,43 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-import { supabase } from "@/lib/supabase"
+import { useSession, signOut } from "next-auth/react"
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { setTheme, theme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const { data: session } = useSession()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await signOut({ redirect: false })
     router.push("/login")
   }
+
+  // Get user's name or email for display
+  const userName = session?.user?.name || session?.user?.email || "User"
+  
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    if (name.includes('@')) {
+      // If it's an email, use first letter
+      return name.charAt(0).toUpperCase()
+    }
+    
+    // Otherwise get initials from name
+    return name
+      .split(' ')
+      .map(part => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('')
+  }
+  
+  const userInitials = getInitials(userName)
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -89,10 +110,10 @@ export function AppSidebar() {
             <SidebarMenuButton asChild>
               <Link href="/profile" className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src="/placeholder.svg" />
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarImage src={session?.user?.image || ""} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
-                <span>John Doe</span>
+                <span className="truncate">{userName}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
