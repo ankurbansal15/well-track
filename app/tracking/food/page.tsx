@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FlameIcon as FireIcon } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 
 type EntryMethod = "image" | "nameQuantity" | "calories"
 
@@ -28,40 +27,25 @@ export default function FoodTrackingPage() {
   const [totalCalories, setTotalCalories] = useState<number>(0)
 
   useEffect(() => {
-    const fetchFoodEntries = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from("food_tracking")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("recorded_at", new Date().toISOString().split("T")[0])
-        .order("recorded_at", { ascending: false })
-
-      if (error) {
-        console.error("Error fetching food entries:", error)
-      } else {
-        setFoodEntries(data)
-        setTotalCalories(data.reduce((sum, entry) => sum + entry.calories, 0))
+    // Initialize with some mock data if needed
+    const mockEntries: FoodEntry[] = [
+      {
+        id: "1",
+        food_name: "Banana",
+        calories: 105,
+        recorded_at: new Date().toISOString()
+      },
+      {
+        id: "2",
+        food_name: "Greek Yogurt",
+        calories: 150,
+        recorded_at: new Date().toISOString()
       }
-    }
-
-    fetchFoodEntries()
-
-    const subscription = supabase
-      .channel("food_tracking_changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "food_tracking" }, (payload) => {
-        fetchFoodEntries()
-      })
-      .subscribe()
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
+    ];
+    
+    setFoodEntries(mockEntries);
+    setTotalCalories(mockEntries.reduce((sum, entry) => sum + entry.calories, 0));
+  }, []);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -77,28 +61,28 @@ export default function FoodTrackingPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
+    
+    if (!foodName || !calories) return;
+    
+    // Create new food entry with local data
+    const newEntry: FoodEntry = {
+      id: Math.random().toString(36).substring(2, 9),
+      food_name: foodName,
+      calories: calories,
+      recorded_at: new Date().toISOString()
+    };
 
-    const newEntry = {
-      user_id: user.id,
-      food_name: foodName || "Unknown Food",
-      calories: calories || 0,
-    }
-
-    const { data, error } = await supabase.from("food_tracking").insert([newEntry])
-
-    if (error) {
-      console.error("Error adding food entry:", error)
-    } else {
-      setFoodName("")
-      setCalories(null)
-      setSelectedImage(null)
-    }
+    // Update local state
+    const updatedEntries = [newEntry, ...foodEntries];
+    setFoodEntries(updatedEntries);
+    setTotalCalories(totalCalories + calories);
+    
+    // Reset form
+    setFoodName("");
+    setCalories(null);
+    setSelectedImage(null);
   }
 
   return (
