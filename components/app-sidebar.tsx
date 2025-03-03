@@ -82,7 +82,7 @@ export function AppSidebar() {
     <Sidebar className="h-screen flex-shrink-0">
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-2">
-          <Heart className="h-6 w-6 text-primary" />
+          <Heart className="h-6 w-6 text-primary fill-current" />
           <span className="font-semibold">WellTrack</span>
         </div>
       </SidebarHeader>

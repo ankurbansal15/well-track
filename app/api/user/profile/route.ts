@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
 import UserProfile from '@/models/UserProfile';
+import User from '@/models/User';
 
 export async function GET(req: NextRequest) {
   try {
@@ -65,3 +66,30 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    await dbConnect();
+    
+    // Find and delete the user profile
+    const deletedProfile = await UserProfile.findOneAndDelete({ userId: session.user.id });
+    
+    if (!deletedProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    }
+    
+    // Optionally delete the user account as well
+    await User.findByIdAndDelete(session.user.id);
+    
+    return NextResponse.json({ message: 'User profile deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user profile:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

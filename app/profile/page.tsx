@@ -1,97 +1,254 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BellIcon, PencilIcon, ShieldCheckIcon } from "@heroicons/react/24/solid"
+"use client";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { BellIcon, LockClosedIcon, UserIcon } from "@heroicons/react/24/solid";
 
 export default function ProfilePage() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || "User";
+  const userEmail = session?.user?.email || "admin@example.com";
+  const [isEditing, setIsEditing] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  const formVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+  };
+
   return (
-    <div className="w-full grid gap-6">
-      <div>
+    <motion.div 
+      className="w-full max-w-5xl mx-auto py-8 px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.div 
+        className="space-y-2 mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
         <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
         <p className="text-muted-foreground">Manage your account preferences and settings.</p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback>JD</AvatarFallback>
-              </Avatar>
-              <div>
-                <CardTitle>John Doe</CardTitle>
-                <CardDescription>john.doe@example.com</CardDescription>
+      <div className="grid gap-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-muted/50 pb-8">
+              <div className="flex flex-col md:flex-row md:items-center gap-6">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative"
+                >
+                  <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
+                    <AvatarImage src="/placeholder.svg" alt={userName} />
+                    <AvatarFallback>{userName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <Button 
+                    size="sm" 
+                    className="absolute -bottom-2 -right-2 rounded-full h-8 w-8 p-0"
+                    onClick={() => alert("Upload avatar functionality would go here")}
+                  >
+                    <UserIcon className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+                <div className="space-y-1">
+                  <CardTitle className="text-2xl">{userName}</CardTitle>
+                  <CardDescription className="text-base">{userEmail}</CardDescription>
+                </div>
               </div>
-              <Button variant="outline" className="ml-auto">
-                <PencilIcon className="mr-2 h-4 w-4" />
-                Edit Profile
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-2 text-sm">
-              <div className="grid grid-cols-2 md:grid-cols-4">
-                <dt className="font-medium">Member Since:</dt>
-                <dd className="text-muted-foreground">January 2024</dd>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4">
-                <dt className="font-medium">Last Login:</dt>
-                <dd className="text-muted-foreground">2 hours ago</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <BellIcon className="h-4 w-4" />
-                <CardTitle>Notifications</CardTitle>
-              </div>
-              <CardDescription>Manage your notification preferences</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {["Appointment Reminders", "Medication Updates", "Health Reports", "System Updates"].map((item) => (
-                  <div key={item} className="flex items-center gap-2">
-                    <input type="checkbox" id={item} defaultChecked />
-                    <label htmlFor={item}>{item}</label>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="pt-6">
+              <Tabs defaultValue="personal" className="w-full">
+                <TabsList className="grid grid-cols-3 mb-8">
+                  <TabsTrigger value="personal" className="flex items-center justify-center gap-2">
+                    <UserIcon className="h-4 w-4" />
+                    <span>Personal Info</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="notifications" className="flex items-center justify-center gap-2">
+                    <BellIcon className="h-4 w-4" />
+                    <span>Notifications</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="security" className="flex items-center justify-center gap-2">
+                    <LockClosedIcon className="h-4 w-4" />
+                    <span>Security</span>
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="personal" className="space-y-6">
+                  {isEditing ? (
+                    <motion.div
+                      variants={formVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="space-y-4"
+                    >
+                      <div className="grid gap-3">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input id="name" defaultValue={userName} />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input id="email" type="email" defaultValue={userEmail} />
+                      </div>
+                      <div className="flex justify-end gap-3 pt-4">
+                        <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                        <Button onClick={() => setIsEditing(false)}>Save Changes</Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      variants={formVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="space-y-6"
+                    >
+                      <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground">Full Name</dt>
+                          <dd className="font-medium">{userName}</dd>
+                        </div>
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground">Email Address</dt>
+                          <dd className="font-medium">{userEmail}</dd>
+                        </div>
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground">Member Since</dt>
+                          <dd className="font-medium">January 2024</dd>
+                        </div>
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground">Last Login</dt>
+                          <dd className="font-medium">2 hours ago</dd>
+                        </div>
+                      </dl>
+                      <div className="flex justify-end">
+                        <Button 
+                          onClick={() => setIsEditing(true)}
+                          className="gap-2 bg-primary text-primary-foreground"
+                        >
+                          <UserIcon className="h-4 w-4" /> Edit Profile
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="notifications">
+                  <motion.div
+                    variants={formVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="space-y-6"
+                  >
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Communication Preferences</h3>
+                      <div className="space-y-5">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="email-notifications">Email Notifications</Label>
+                            <p className="text-sm text-muted-foreground">Receive appointment reminders and updates</p>
+                          </div>
+                          <Switch id="email-notifications" defaultChecked />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="sms-notifications">SMS Notifications</Label>
+                            <p className="text-sm text-muted-foreground">Get text messages for important alerts</p>
+                          </div>
+                          <Switch id="sms-notifications" />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="whatsapp-notifications">WhatsApp Notifications</Label>
+                            <p className="text-sm text-muted-foreground">Receive messages via WhatsApp</p>
+                          </div>
+                          <Switch id="whatsapp-notifications" />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </TabsContent>
+                
+                <TabsContent value="security">
+                  <motion.div
+                    variants={formVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="space-y-6"
+                  >
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium">Password & Security</h3>
+                      <div className="grid gap-3">
+                        <Label htmlFor="current-password">Current Password</Label>
+                        <Input id="current-password" type="password" />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label htmlFor="new-password">New Password</Label>
+                        <Input id="new-password" type="password" />
+                      </div>
+                      <div className="grid gap-3">
+                        <Label htmlFor="confirm-password">Confirm New Password</Label>
+                        <Input id="confirm-password" type="password" />
+                      </div>
+                      <div className="flex justify-end pt-4">
+                        <Button className="gap-2">
+                          <LockClosedIcon className="h-4 w-4" /> Update Password
+                        </Button>
+                      </div>
+                      
+                      <div className="pt-6 border-t mt-8">
+                        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="destructive" className="w-full sm:w-auto">Delete Account</Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Are you sure?</DialogTitle>
+                              <DialogDescription>
+                                This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="flex space-x-2 mt-4">
+                              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                                Cancel
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                onClick={() => {
+                                  alert("Account would be deleted in a real app");
+                                  setDeleteDialogOpen(false);
+                                }}
+                              >
+                                Delete Account
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </motion.div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <ShieldCheckIcon className="h-4 w-4" />
-                <CardTitle>Privacy & Security</CardTitle>
-              </div>
-              <CardDescription>Manage your security settings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <Button variant="outline" className="w-full justify-start">
-                  Change Password
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  Two-Factor Authentication
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  Connected Devices
-                </Button>
-                <Button variant="outline" className="w-full justify-start text-destructive">
-                  Delete Account
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        </motion.div>
       </div>
-    </div>
-  )
+    </motion.div>
+  );
 }
 
