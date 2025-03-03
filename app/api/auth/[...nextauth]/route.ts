@@ -7,6 +7,19 @@ import User from '@/models/User';
 import UserProfile from '@/models/UserProfile';
 import { NextAuthOptions } from 'next-auth';
 
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      email?: string | null;
+      name?: string | null;
+      image?: string | null;
+    };
+    sessionCreatedAt: string;
+    userCreatedAt: string;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -52,15 +65,30 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, trigger, session }) {
+      // When the session is updated, update the token
+      if (trigger === "update" && session) {
+        if (session.name) token.name = session.name;
+        if (session.email) token.email = session.email;
+      }
+
+      // Initial sign in
       if (user) {
         token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
+        token.createdAt = (user as any).createdAt || new Date().toISOString();
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
+      if (token.sub && session.user) {
+        session.user.id = token.sub;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
+        // Include any other user properties you need
+        session.userCreatedAt = token.createdAt as string;
+        session.sessionCreatedAt = new Date().toISOString();
       }
       return session;
     },
@@ -118,4 +146,4 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 
-export { handler as GET, handler as POST }; 
+export { handler as GET, handler as POST };

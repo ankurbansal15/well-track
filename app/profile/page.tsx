@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,17 +11,112 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BellIcon, LockClosedIcon, UserIcon } from "@heroicons/react/24/solid";
+import { formatDistanceToNow, formatDate } from "date-fns";
 
 export default function ProfilePage() {
-  const { data: session } = useSession();
-  const userName = session?.user?.name || "User";
-  const userEmail = session?.user?.email || "admin@example.com";
+  const { data: session, update } = useSession();
+  const [userName, setUserName] = useState(session?.user?.name || "User");
+  const [userEmail, setUserEmail] = useState(session?.user?.email || "admin@example.com");
+  const userCreatedAt = session?.userCreatedAt || "N/A";
+  const sessionCreatedAt = session?.sessionCreatedAt || "N/A";
+
+  // Add useEffect to update state when session changes
+  useEffect(() => {
+    if (session?.user) {
+      setUserName(session.user.name || "User");
+      setUserEmail(session.user.email || "admin@example.com");
+    }
+  }, [session]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   
   const formVariants = {
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+      setSuccess("");
+      
+      const response = await fetch('/api/user/edit', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: userName,
+          email: userEmail,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile');
+      }
+
+      await update({
+        name: userName,
+        email: userEmail,
+      });
+      
+      setSuccess('Profile updated successfully');
+      setIsEditing(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+      setSuccess("");
+      
+      if (newPassword !== confirmPassword) {
+        throw new Error('New passwords do not match');
+      }
+      
+      const response = await fetch('/api/user/edit', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password');
+      }
+      
+      setSuccess('Password updated successfully');
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -100,15 +195,15 @@ export default function ProfilePage() {
                     >
                       <div className="grid gap-3">
                         <Label htmlFor="name">Full Name</Label>
-                        <Input id="name" defaultValue={userName} />
+                        <Input id="name" defaultValue={userName} onChange={(e) => setUserName(e.target.value)}/>
                       </div>
                       <div className="grid gap-3">
                         <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" type="email" defaultValue={userEmail} />
+                        <Input id="email" type="email" defaultValue={userEmail} onChange={(e) => setUserEmail(e.target.value)}/>
                       </div>
                       <div className="flex justify-end gap-3 pt-4">
                         <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-                        <Button onClick={() => setIsEditing(false)}>Save Changes</Button>
+                        <Button onClick={() => handleSaveChanges()}>Save Changes</Button>
                       </div>
                     </motion.div>
                   ) : (
@@ -129,11 +224,21 @@ export default function ProfilePage() {
                         </div>
                         <div className="space-y-1">
                           <dt className="text-muted-foreground">Member Since</dt>
-                          <dd className="font-medium">January 2024</dd>
+                          <dd className="font-medium">
+                            {userCreatedAt !== "N/A" 
+                              ? formatDate(new Date(userCreatedAt), 'MMMM dd, yyyy')
+                              : "N/A"
+                            }
+                          </dd>
                         </div>
                         <div className="space-y-1">
                           <dt className="text-muted-foreground">Last Login</dt>
-                          <dd className="font-medium">2 hours ago</dd>
+                          <dd className="font-medium">
+                            {sessionCreatedAt !== "N/A" 
+                              ? formatDistanceToNow(new Date(sessionCreatedAt), { addSuffix: true })
+                              : "N/A"
+                            }
+                          </dd>
                         </div>
                       </dl>
                       <div className="flex justify-end">
@@ -195,19 +300,45 @@ export default function ProfilePage() {
                       <h3 className="text-lg font-medium">Password & Security</h3>
                       <div className="grid gap-3">
                         <Label htmlFor="current-password">Current Password</Label>
-                        <Input id="current-password" type="password" />
+                        <Input 
+                          id="current-password" 
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                        />
                       </div>
                       <div className="grid gap-3">
                         <Label htmlFor="new-password">New Password</Label>
-                        <Input id="new-password" type="password" />
+                        <Input 
+                          id="new-password" 
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
                       </div>
                       <div className="grid gap-3">
                         <Label htmlFor="confirm-password">Confirm New Password</Label>
-                        <Input id="confirm-password" type="password" />
+                        <Input 
+                          id="confirm-password" 
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
                       </div>
+                      {error && (
+                        <p className="text-sm text-red-500 mt-2">{error}</p>
+                      )}
+                      {success && (
+                        <p className="text-sm text-green-500 mt-2">{success}</p>
+                      )}
                       <div className="flex justify-end pt-4">
-                        <Button className="gap-2">
-                          <LockClosedIcon className="h-4 w-4" /> Update Password
+                        <Button 
+                          className="gap-2"
+                          onClick={handlePasswordUpdate}
+                          disabled={isLoading}
+                        >
+                          <LockClosedIcon className="h-4 w-4" />
+                          {isLoading ? 'Updating...' : 'Update Password'}
                         </Button>
                       </div>
                       
