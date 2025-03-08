@@ -271,6 +271,35 @@ export default function SignupPage() {
                   )}
                 </Button>
                 
+                {/* Add divider for social logins */}
+                <div className="relative flex items-center justify-center my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                  </div>
+                  <div className="relative px-4 bg-background text-sm text-muted-foreground">Or continue with</div>
+                </div>
+                
+                {/* Add social login buttons */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="h-11"
+                    onClick={() => signIn('google', { callbackUrl: '/initial-health-form' })}
+                  >
+                    <Image src="/google-logo.svg" alt="Google" width={18} height={18} className="mr-2" />
+                    Google
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="h-11"
+                    onClick={() => signIn('github', { callbackUrl: '/initial-health-form' })}
+                  >
+                    <Image src="/github-logo.svg" alt="GitHub" width={18} height={18} className="mr-2" />
+                    GitHub
+                  </Button>
+                </div>
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground">
                     Already have an account?{" "}

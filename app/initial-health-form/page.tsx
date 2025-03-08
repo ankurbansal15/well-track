@@ -152,6 +152,34 @@ export default function InitialHealthFormPage() {
     mode: "onChange"
   })
 
+
+  useEffect(() => {
+    // Only fetch data if the user is authenticated
+    if (status === "authenticated") {
+      fetchHealthMetrics()
+    } else if (status === "unauthenticated") {
+      // If definitely not authenticated, redirect to login
+      router.push("/login")
+    }
+    // Don't do anything while status is "loading"
+  }, [status, router])
+
+  const fetchHealthMetrics = async () => {
+    try {
+      const response = await fetch("/api/health/latest")
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch health metrics")
+      }
+      
+      const data = await response.json()
+      form.reset(data)
+    } catch (error) {
+      console.error("Error fetching health metrics:", error)
+    }
+  }
+
+  
   // Define the steps for the form
   const steps = [
     {

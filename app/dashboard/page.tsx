@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, Activity, Heart, Droplets, Scale, Utensils, Moon, Plus } from "lucide-react"
+import { Loader2, Activity, Heart, Droplets, Scale, Utensils, Moon, Plus, PenBox, Pencil } from "lucide-react"
+import Link from "next/link"
+import FillData from "@/components/fill-data"
 
 interface HealthMetrics {
   id: string
@@ -78,25 +80,7 @@ export default function DashboardPage() {
   // If authenticated but no health data
   if (!healthMetrics && !loading) {
     return (
-      <div className="container mx-auto py-10">
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Welcome to Your Health Dashboard</CardTitle>
-            <CardDescription>
-              It looks like we don't have your health information yet.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={() => router.push("/initial-health-form")}
-              className="mt-4"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Your Health Information
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <FillData/>
     )
   }
 
@@ -104,6 +88,19 @@ export default function DashboardPage() {
     <div className="container mx-auto py-6">
       <h1 className="text-3xl font-bold mb-6">Your Health Dashboard</h1>
       
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-semibold">Hello, {session?.user?.name || "User"}</h2>
+          <p className="text-muted-foreground">Here's a summary of your health status</p>
+        </div>
+        <Link href="/initial-health-form">
+        <Button className="bg-primary text-muted hover:bg-primary hover:text-muted" variant="outline">
+          <PenBox className="mr-2 h-4 w-4" />
+          Update Health Details
+          </Button>
+        </Link>
+      </div>
+
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
