@@ -27,6 +27,7 @@ export interface IHealthMetrics extends mongoose.Document {
   surgeries?: string;
   fitnessGoals?: string;
   recordedAt: Date;
+  history: mongoose.Types.ObjectId[]; // Reference to historical metrics
 }
 
 const HealthMetricsSchema = new mongoose.Schema<IHealthMetrics>(
@@ -57,8 +58,9 @@ const HealthMetricsSchema = new mongoose.Schema<IHealthMetrics>(
     surgeries: { type: String },
     fitnessGoals: { type: String },
     recordedAt: { type: Date, default: Date.now },
+    history: [{ type: mongoose.Schema.Types.ObjectId, ref: 'HealthMetricsHistory' }]
   },
   { timestamps: true }
 );
 
-export default mongoose.models.HealthMetrics || mongoose.model<IHealthMetrics>('HealthMetrics', HealthMetricsSchema); 
+export default mongoose.models.HealthMetrics || mongoose.model<IHealthMetrics>('HealthMetrics', HealthMetricsSchema);

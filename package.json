@@ -38,11 +38,6 @@
     "@radix-ui/react-toggle": "^1.1.1",
     "@radix-ui/react-toggle-group": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.1.8",
-    "@supabase/auth-helpers-nextjs": "latest",
-    "@supabase/auth-helpers-react": "latest",
-    "@supabase/auth-ui-react": "latest",
-    "@supabase/auth-ui-shared": "latest",
-    "@supabase/supabase-js": "latest",
     "autoprefixer": "^10.4.20",
     "bcrypt": "^5.1.1",
     "class-variance-authority": "^0.7.1",
@@ -68,7 +63,8 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
-    "zod": "latest"
+    "zod": "latest",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

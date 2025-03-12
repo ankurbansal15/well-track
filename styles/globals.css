@@ -128,6 +128,7 @@
   /* Active sidebar item styling */
   .sidebar-item-active {
     position: relative;
+    @apply bg-primary dark:bg-primary text-background !important;
   }
   
   .sidebar-item-active::before {
@@ -139,6 +140,7 @@
     width: 3px;
     border-radius: 0 4px 4px 0;
     @apply bg-primary;
+    display: none; /* Hide the original indicator since we're using border-l instead */
   }
 }
 

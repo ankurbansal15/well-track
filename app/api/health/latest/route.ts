@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import HealthMetrics from "@/models/HealthMetrics";
+import UserProfile from "@/models/UserProfile";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,15 +17,22 @@ export async function GET(req: NextRequest) {
 
     await dbConnect();
 
+    // Get the latest health metrics
     const healthMetrics = await HealthMetrics.findOne(
       { userId: session.user.id },
       {},
       { sort: { recordedAt: -1 } }
-    );
+    ).populate('history');
 
+    // Get profile to check history count
+    const userProfile = await UserProfile.findOne({ userId: session.user.id });
+    
     if (!healthMetrics) {
       return NextResponse.json(null);
     }
+
+    // Extract the count of history records
+    const historyCount = userProfile?.metricsUpdateCount || 0;
 
     return NextResponse.json({
       userId: healthMetrics.userId,
@@ -53,6 +61,9 @@ export async function GET(req: NextRequest) {
       surgeries: healthMetrics.surgeries,
       fitnessGoals: healthMetrics.fitnessGoals,
       recordedAt: healthMetrics.recordedAt,
+      history: healthMetrics.history,
+      historyCount,
+      hasHistoricalData: historyCount > 1
     });
   } catch (error) {
     console.error("Error fetching health metrics:", error);

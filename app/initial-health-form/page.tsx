@@ -88,6 +88,7 @@ export default function InitialHealthFormPage() {
   const [progress, setProgress] = useState(0)
   const [completedFields, setCompletedFields] = useState<string[]>([])
   const [showConfetti, setShowConfetti] = useState(false)
+  const [hasHistoricalData, setHasHistoricalData] = useState(false)
   
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -173,6 +174,17 @@ export default function InitialHealthFormPage() {
       }
       
       const data = await response.json()
+      
+      // If we have historical data available, show a message
+      if (data && data.history && data.history.length > 0) {
+        toast({
+          title: "Previous health data found",
+          description: `We found ${data.history.length} previous health records. Your latest data will be pre-filled.`,
+          duration: 5000,
+        })
+        setHasHistoricalData(true)
+      }
+      
       form.reset(data)
     } catch (error) {
       console.error("Error fetching health metrics:", error)
@@ -282,12 +294,18 @@ export default function InitialHealthFormPage() {
         sleepDuration: values.sleepDuration ? parseFloat(values.sleepDuration) : undefined,
       }
 
+      // Add timestamp for history tracking
+      const dataWithTimestamp = {
+        ...formattedValues,
+        recordedAt: new Date(),
+      };
+
       const response = await fetch("/api/health/initial", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formattedValues),
+        body: JSON.stringify(dataWithTimestamp),
       })
 
       const data = await response.json()

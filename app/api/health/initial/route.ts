@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
 import UserProfile from '@/models/UserProfile';
 import HealthMetrics from '@/models/HealthMetrics';
+import HealthMetricsHistory from '@/models/HealthMetricsHistory';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,17 +18,57 @@ export async function POST(req: NextRequest) {
     
     await dbConnect();
     
-    // Create health metrics record
-    const healthMetrics = await HealthMetrics.create({
+    // Check if this is the first submission or an update
+    const existingMetrics = await HealthMetrics.findOne({ userId: session.user.id });
+    const isInitialSubmission = !existingMetrics;
+    
+    // Save this submission to health metrics history
+    const historyEntry = await HealthMetricsHistory.create({
       userId: session.user.id,
-      ...healthData,
+      height: healthData.height,
+      weight: healthData.weight,
+      bloodPressure: healthData.bloodPressure,
+      heartRate: healthData.heartRate,
+      respiratoryRate: healthData.respiratoryRate,
+      temperature: healthData.temperature,
+      sleepDuration: healthData.sleepDuration,
+      stressLevel: healthData.stressLevel,
+      activityLevel: healthData.activityLevel,
       recordedAt: new Date(),
+      notes: `Health data from ${isInitialSubmission ? 'initial submission' : 'health form update'}`
     });
     
-    // Update user profile to mark initial health data as submitted
+    let healthMetrics;
+    
+    if (isInitialSubmission) {
+      // Create new health metrics record for first-time submission
+      healthMetrics = await HealthMetrics.create({
+        userId: session.user.id,
+        ...healthData,
+        recordedAt: new Date(),
+        history: [historyEntry._id]
+      });
+    } else {
+      // Update existing health metrics record
+      healthMetrics = await HealthMetrics.findOneAndUpdate(
+        { userId: session.user.id },
+        {
+          ...healthData,
+          recordedAt: new Date(),
+          $push: { history: historyEntry._id }
+        },
+        { new: true }
+      );
+    }
+    
+    // Update user profile
     const userProfile = await UserProfile.findOneAndUpdate(
       { userId: session.user.id },
-      { initialHealthDataSubmitted: true },
+      { 
+        initialHealthDataSubmitted: true,
+        lastMetricsUpdate: new Date(),
+        $inc: { metricsUpdateCount: 1 }
+      },
       { new: true }
     );
     
@@ -38,10 +79,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       healthMetrics,
-      initialHealthDataSubmitted: true
+      historyEntry,
+      initialHealthDataSubmitted: true,
+      historyRecordCount: userProfile.metricsUpdateCount
     });
   } catch (error) {
-    console.error('Error saving initial health data:', error);
+    console.error('Error saving health data:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}
