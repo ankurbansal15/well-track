@@ -39,7 +39,7 @@ export default function LandingPage() {
         </div>
         <div className="lg:w-1/2 mt-8 lg:mt-0">
           <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image_9wgXTGL__1737189862687_raw.jpg-gefxh8gMn8HW4IKJii4sjaYZPZPl2z.jpeg"
+            src="/hero-image.jpeg"
             alt="Diverse team of healthcare professionals smiling"
             width={600}
             height={600}
@@ -159,7 +159,7 @@ export default function LandingPage() {
         <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
           <div className="lg:w-1/2">
             <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image_YwXvi09Q_1737189802617_raw.jpg-rC7MUNAKRWg2lMgiiTtr9DBPtGlZtD.jpeg"
+              src="/infographic.jpeg"
               alt="AI-powered healthcare analytics dashboard showing medical professionals analyzing health data visualizations"
               width={500}
               height={500}
