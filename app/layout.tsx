@@ -11,6 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute"
 import { SessionProvider } from "@/components/SessionProvider"
 import { cn } from "@/lib/utils"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 
 const fontSans = FontSans({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -39,10 +40,15 @@ export default function RootLayout({
             ) : (
               <SidebarProvider defaultOpen={true}>
                 <div className="flex w-full h-screen overflow-hidden">
-                  <AppSidebar />
+                  {/* Desktop Sidebar - hidden on mobile */}
+                  <div className="hidden md:block">
+                    <AppSidebar />
+                  </div>
                   <SidebarInset className="flex-grow overflow-auto">
                     <ProtectedRoute>
-                      <main className="w-full p-6">{children}</main>
+                      <main className="w-full p-6 pb-20 md:pb-6">{children}</main>
+                      {/* Mobile Bottom Navigation - only visible on mobile */}
+                      <MobileBottomNav />
                     </ProtectedRoute>
                   </SidebarInset>
                 </div>
