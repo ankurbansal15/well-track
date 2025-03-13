@@ -20,7 +20,8 @@ declare module "next-auth" {
   }
 }
 
-export const authOptions: NextAuthOptions = {
+// Define authOptions but don't export it directly from the route file
+const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -143,7 +144,9 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
+export { authOptions };
+// // Create the handler using the authOptions
+// const handler = NextAuth(authOptions);
 
-const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
+// // Only export the handler functions, not the authOptions
+// export { handler as GET, handler as POST };
