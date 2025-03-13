@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -8,11 +11,89 @@ import {
   DumbbellIcon,
   BedIcon,
   SunIcon,
+  Loader2Icon,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { format } from "date-fns"
+
+// Sleep record interface
+interface SleepRecord {
+  _id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  quality: string;
+}
 
 export default function TrackingPage() {
+  const [sleepData, setSleepData] = useState<SleepRecord[]>([]);
+  const [sleepLoading, setSleepLoading] = useState(false);
+  const [latestSleep, setLatestSleep] = useState<SleepRecord | null>(null);
+  const [averageDuration, setAverageDuration] = useState(0);
+  const [sleepQuality, setSleepQuality] = useState("N/A");
+  const [sleepStreak, setSleepStreak] = useState(0);
+
+  useEffect(() => {
+    async function fetchSleepData() {
+      setSleepLoading(true);
+      try {
+        const response = await fetch('/api/sleep?limit=7');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSleepData(data);
+          
+          // Set latest sleep record
+          if (data.length > 0) {
+            setLatestSleep(data[0]);
+            
+            // Calculate average duration (in minutes)
+            const totalDuration = data.reduce((sum: number, record: SleepRecord) => sum + record.duration, 0);
+            const avgDuration = Math.round(totalDuration / data.length);
+            setAverageDuration(avgDuration);
+            
+            // Determine overall sleep quality
+            const qualityMap: { [key: string]: number } = {
+              poor: 1,
+              fair: 2,
+              good: 3,
+              excellent: 4
+            };
+            
+            const qualitySum = data.reduce((sum: number, record: SleepRecord) => 
+              sum + (qualityMap[record.quality] || 0), 0);
+            
+            const avgQuality = qualitySum / data.length;
+            
+            if (avgQuality >= 3.5) setSleepQuality("Excellent");
+            else if (avgQuality >= 2.5) setSleepQuality("Good");
+            else if (avgQuality >= 1.5) setSleepQuality("Fair");
+            else setSleepQuality("Poor");
+            
+            // Calculate streak (consecutive days with sleep records)
+            // This is a simplified version - a more complex implementation would check actual dates
+            setSleepStreak(Math.min(data.length, 7));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching sleep data:", error);
+      } finally {
+        setSleepLoading(false);
+      }
+    }
+
+    fetchSleepData();
+  }, []);
+
+  // Format duration from minutes to hours and minutes
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
+
   return (
     <div className="w-full grid gap-6">
       <div className="flex items-center justify-between">
@@ -61,6 +142,7 @@ export default function TrackingPage() {
             Sleep
           </TabsTrigger>
         </TabsList>
+        
         <TabsContent value="activity" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -116,6 +198,7 @@ export default function TrackingPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
         <TabsContent value="nutrition" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -171,6 +254,7 @@ export default function TrackingPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
         <TabsContent value="exercise" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -226,6 +310,7 @@ export default function TrackingPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
         <TabsContent value="sleep" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -234,8 +319,22 @@ export default function TrackingPage() {
                 <MoonIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">7h 30m</div>
-                <p className="text-xs text-muted-foreground">of 8h goal</p>
+                {sleepLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                    <span className="text-muted-foreground">Loading...</span>
+                  </div>
+                ) : latestSleep ? (
+                  <>
+                    <div className="text-2xl font-bold">{formatDuration(latestSleep.duration)}</div>
+                    <p className="text-xs text-muted-foreground">Last night's sleep</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">No data</div>
+                    <p className="text-xs text-muted-foreground">Track your first sleep</p>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -244,40 +343,110 @@ export default function TrackingPage() {
                 <MoonIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">Good</div>
-                <p className="text-xs text-muted-foreground">Based on duration and consistency</p>
+                {sleepLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                    <span className="text-muted-foreground">Loading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{sleepQuality}</div>
+                    <p className="text-xs text-muted-foreground">Based on recent sleep data</p>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Bedtime</CardTitle>
+                <CardTitle className="text-sm font-medium">Average Sleep</CardTitle>
                 <MoonIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">11:00 PM</div>
-                <p className="text-xs text-muted-foreground">Consistent with your schedule</p>
+                {sleepLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                    <span className="text-muted-foreground">Loading...</span>
+                  </div>
+                ) : averageDuration > 0 ? (
+                  <>
+                    <div className="text-2xl font-bold">{formatDuration(averageDuration)}</div>
+                    <p className="text-xs text-muted-foreground">Last 7 days average</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">No data</div>
+                    <p className="text-xs text-muted-foreground">Add sleep records first</p>
+                  </>
+                )}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Wake Time</CardTitle>
-                <SunIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Sleep Streak</CardTitle>
+                <BedIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">6:30 AM</div>
-                <p className="text-xs text-muted-foreground">On target with your goal</p>
+                {sleepLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                    <span className="text-muted-foreground">Loading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{sleepStreak} days</div>
+                    <p className="text-xs text-muted-foreground">Consistent sleep tracking</p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
           <Card>
             <CardHeader>
               <CardTitle>Sleep Analysis</CardTitle>
-              <CardDescription>Your sleep patterns and quality</CardDescription>
+              <CardDescription>Your sleep patterns and quality over time</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                Sleep analysis chart will be displayed here
-              </div>
+              {sleepLoading ? (
+                <div className="flex justify-center items-center h-[200px]">
+                  <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : sleepData.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <h3 className="font-medium mb-2">Recent Sleep Records</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {sleepData.slice(0, 4).map((record) => (
+                        <div key={record._id} className="bg-card border rounded-md p-3 flex justify-between items-center">
+                          <div>
+                            <div className="font-medium">{format(new Date(record.date), 'MMM dd, yyyy')}</div>
+                            <div className="text-sm text-muted-foreground capitalize">{record.quality} quality</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">{formatDuration(record.duration)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(record.startTime), 'hh:mm a')} - {format(new Date(record.endTime), 'hh:mm a')}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {sleepData.length > 4 && (
+                      <div className="mt-3 text-center">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href="/tracking/sleep">View all sleep records</Link>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+                  <p className="mb-2">No sleep records found</p>
+                  <Button size="sm" asChild>
+                    <Link href="/tracking/sleep">Add your first sleep record</Link>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

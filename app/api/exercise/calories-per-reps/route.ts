@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateTextToText } from "@/lib/generative-ai";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '../../auth/[...nextauth]/route';
 
 export async function POST(request: NextRequest) {
     try {
