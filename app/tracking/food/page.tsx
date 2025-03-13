@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRouter } from "next/navigation"
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 type EntryMethod = "percentages" | "grams" | "image";
 
@@ -46,41 +47,7 @@ export default function FoodTrackingPage() {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
   const router = useRouter()
-
-  useEffect(() => {
-    // Initialize with some mock data if needed
-    const mockEntries: FoodEntry[] = [
-      {
-        id: "1",
-        food_name: "Banana",
-        calories: 105,
-        protein_g: 1.3,
-        carbs_g: 27,
-        fats_g: 0.4,
-        protein_percent: 5,
-        carbs_percent: 90,
-        fats_percent: 5,
-        recorded_at: new Date().toISOString(),
-      },
-      {
-        id: "2",
-        food_name: "Greek Yogurt",
-        calories: 150,
-        protein_g: 15,
-        carbs_g: 8,
-        fats_g: 5,
-        protein_percent: 40,
-        carbs_percent: 20,
-        fats_percent: 40,
-        recorded_at: new Date().toISOString(),
-      },
-    ];
-
-    setFoodEntries(mockEntries);
-    setTotalCalories(
-      mockEntries.reduce((sum, entry) => sum + entry.calories, 0)
-    );
-  }, []);
+  const { data: session } = useSession();
 
   // Calculate macros from percentages and calories
   const calculateMacrosFromPercentages = (): {
@@ -308,7 +275,7 @@ export default function FoodTrackingPage() {
         },
         body: JSON.stringify({
           ...newEntry,
-          userId: "user123", // In a real app, this would be the authenticated user's ID
+          userId: session?.user.id, // In a real app, this would be the authenticated user's ID
         }),
       });
 
@@ -341,16 +308,18 @@ export default function FoodTrackingPage() {
   useEffect(() => {
     const fetchFoodEntries = async () => {
       try {
-        const response = await fetch("/api/food?userId=user123");
-        if (response.ok) {
-          const data = await response.json();
-          setFoodEntries(data);
-          setTotalCalories(
-            data.reduce(
-              (sum: number, entry: FoodEntry) => sum + entry.calories,
-              0
-            )
-          );
+        if (session?.user?.id) {
+          const response = await fetch(`/api/food?userId=${session.user.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            setFoodEntries(data);
+            setTotalCalories(
+              data.reduce(
+                (sum: number, entry: FoodEntry) => sum + entry.calories,
+                0
+              )
+            );
+          }
         }
       } catch (error) {
         console.error("Error fetching food entries:", error);
@@ -358,7 +327,7 @@ export default function FoodTrackingPage() {
     };
 
     fetchFoodEntries();
-  }, []);
+  }, [session]);
 
   return (
     <div className="container mx-auto py-8">

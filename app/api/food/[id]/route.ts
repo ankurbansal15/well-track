@@ -63,7 +63,7 @@ export async function PUT(
     await dbConnect();
     
     // Find the original entry first
-    const originalEntry = await FoodEntry.findById(id).lean();
+    const originalEntry = await FoodEntry.find({ userId: id }).lean();
     if (!originalEntry) {
       return NextResponse.json({ error: 'Food entry not found' }, { status: 404 });
     }
