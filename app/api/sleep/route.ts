@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import Sleep from '@/models/Sleep';
 import connectToDatabase from '@/lib/mongodb';
 
@@ -43,8 +43,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const data = await request.json();
-    
+    // Check if request body exists
+    const requestBody = await request.text();
+    if (!requestBody || requestBody.trim() === '') {
+      return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
+    }
+
+    // Try to parse the JSON
+    let data;
+    try {
+      data = JSON.parse(requestBody);
+    } catch (error) {
+      console.error('JSON parse error:', error);
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+    }
+
+    // Validate required fields
+    if (!data.date || !data.hoursSlept) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
     // Calculate duration in minutes
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);

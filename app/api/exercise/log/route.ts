@@ -3,7 +3,7 @@ import Exercise from "@/models/Exercise";
 import dbConnect from "@/lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import mongoose from "mongoose";
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 export async function POST(request: NextRequest) {
     try {
         await dbConnect();
