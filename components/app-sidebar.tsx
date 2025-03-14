@@ -29,19 +29,40 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-
+import React from "react";
 export function AppSidebar() {
   const pathname = usePathname();
   const { setTheme, theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { data: session } = useSession();
-  const { state } = useSidebar();
+  const { state, setOpen } = useSidebar();
   const isExpanded = state === "expanded";
+  
+  // Store previous state to prevent unnecessary localStorage updates
+  const prevStateRef = React.useRef(state);
 
+  // Initialize sidebar state from localStorage on component mount only
   useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    // Get saved state from localStorage only on initial mount
+    const savedState = localStorage.getItem('sidebar-state');
+    if (savedState === 'expanded' || savedState === 'collapsed') {
+      // Only set the state if it's different from the current state
+      if ((savedState === 'expanded') !== (state === 'expanded')) {
+        setOpen(savedState === 'expanded');
+      }
+    }
+  }, []); // Empty dependency array to run only once on mount
+  
+  // Save sidebar state to localStorage only when state actually changes
+  useEffect(() => {
+    if (mounted && prevStateRef.current !== state) {
+      localStorage.setItem('sidebar-state', state);
+      prevStateRef.current = state;
+    }
+  }, [state, mounted]);
 
   const handleLogout = async () => {
     await signOut({ redirect: false });
@@ -114,7 +135,7 @@ export function AppSidebar() {
                   className={`w-full rounded-md ${
                     active
                       ? "sidebar-item-active font-medium text-primary dark:text-primary"
-                      : "hover:bg-muted/50"
+                      : "hover:bg-primary/30 dark:hover:bg-muted/70 transition-colors"
                   }`}
                 >
                   <Link
@@ -140,7 +161,7 @@ export function AppSidebar() {
               className={`w-full rounded-md ${
                 isActive("/profile")
                   ? "sidebar-item-active font-medium text-primary dark:text-primary"
-                  : "hover:bg-muted/50"
+                  : "hover:bg-primary/30 dark:hover:bg-muted/70 transition-colors"
               }`}
             >
               <Link
@@ -155,50 +176,50 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
+            <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               onClick={() => setTheme(theme === "light" ? "dark" : "light")}
               tooltip={
-                !isExpanded
-                  ? theme === "light"
-                    ? "Dark Mode"
-                    : "Light Mode"
-                  : undefined
+              !isExpanded
+                ? theme === "light"
+                ? "Dark Mode"
+                : "Light Mode"
+                : undefined
               }
-              className="w-full rounded-md"
+              className="w-full rounded-md hover:bg-primary/30 dark:hover:bg-muted/70 transition-colors"
             >
               <div className="flex h-10 items-center gap-3 px-3">
-                {mounted && (
-                  <>
-                    {theme === "light" ? (
-                      <Moon className="h-6 w-6 shrink-0" />
-                    ) : (
-                      <Sun className="h-6 w-6 shrink-0" />
-                    )}
-                    {isExpanded && (
-                      <span>
-                        {theme === "light" ? "Light Mode" : "Dark Mode"}
-                      </span>
-                    )}
-                  </>
+              {mounted && (
+                <>
+                {theme === "light" ? (
+                  <Sun className="h-6 w-6 shrink-0" />
+                ) : (
+                  <Moon className="h-6 w-6 shrink-0" />
                 )}
+                {isExpanded && (
+                  <span>
+                  {theme === "light" ? "Dark Mode" : "Light Mode"}
+                  </span>
+                )}
+                </>
+              )}
               </div>
             </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               onClick={handleLogout}
               tooltip={!isExpanded ? "Logout" : undefined}
-              className="w-full rounded-md"
+              className="w-full rounded-md hover:bg-primary/30 dark:hover:bg-muted/70 transition-colors"
             >
               <div className="flex h-10 items-center gap-3 px-3">
-                <LogOut className="h-5 w-5 shrink-0" />
-                {isExpanded && <span>Logout</span>}
+              <LogOut className="h-5 w-5 shrink-0" />
+              {isExpanded && <span>Logout</span>}
               </div>
             </SidebarMenuButton>
-          </SidebarMenuItem>
+            </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
