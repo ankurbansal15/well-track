@@ -43,39 +43,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if request body exists
-    const requestBody = await request.text();
-    if (!requestBody || requestBody.trim() === '') {
-      return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
-    }
-
-    // Try to parse the JSON
-    let data;
-    try {
-      data = JSON.parse(requestBody);
-    } catch (error) {
-      console.error('JSON parse error:', error);
-      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
-    }
+    // Parse JSON directly instead of getting text first
+    const data = await request.json();
 
     // Validate required fields
-    if (!data.date || !data.hoursSlept) {
+    if (!data.date || !data.startTime || !data.endTime || !data.quality) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Calculate duration in minutes
-    const startTime = new Date(data.startTime);
-    const endTime = new Date(data.endTime);
-    const duration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+    // Calculate duration in minutes if not provided
+    let duration = data.duration;
+    if (!duration && data.startTime && data.endTime) {
+      const startTime = new Date(data.startTime);
+      const endTime = new Date(data.endTime);
+      duration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+    }
 
     const sleepRecord = await Sleep.create({
       userId: session.user.id,
       date: data.date || new Date(),
-      startTime,
-      endTime,
+      startTime: data.startTime,
+      endTime: data.endTime,
       duration,
       quality: data.quality,
-      notes: data.notes,
+      notes: data.notes || '',
     });
 
     return NextResponse.json(sleepRecord, { status: 201 });

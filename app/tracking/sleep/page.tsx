@@ -102,11 +102,11 @@ export default function SleepTrackingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     // Validate the form data
     const startTime = new Date(formData.startTime);
     const endTime = new Date(formData.endTime);
-
+  
     // Check if end time is after start time
     if (endTime <= startTime) {
       toast({
@@ -116,11 +116,11 @@ export default function SleepTrackingPage() {
       });
       return;
     }
-
+  
     // Check if the duration is realistic (e.g., not more than 24 hours)
     const durationMs = endTime.getTime() - startTime.getTime();
     const durationHours = durationMs / (1000 * 60 * 60);
-
+  
     if (durationHours > 24) {
       toast({
         title: "Invalid Duration",
@@ -129,10 +129,13 @@ export default function SleepTrackingPage() {
       });
       return;
     }
-
+  
     setFormLoading(true);
-
+  
     try {
+      // Calculate duration in minutes for storage
+      const durationMinutes = Math.round(durationMs / (1000 * 60));
+      
       const response = await fetch("/api/sleep", {
         method: "POST",
         headers: {
@@ -144,16 +147,19 @@ export default function SleepTrackingPage() {
           endTime: formData.endTime,
           quality: formData.quality,
           notes: formData.notes,
+          duration: durationMinutes
         }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to save sleep record");
       }
-
+  
       // Success - refresh the sleep records
       const data = await response.json();
+      
+      // Add the new record to the existing records
       setSleepRecords(prev => [data, ...prev]);
       
       // Reset form
@@ -164,7 +170,7 @@ export default function SleepTrackingPage() {
         quality: "good",
         notes: "",
       });
-
+  
       toast({
         title: "Success",
         description: "Sleep record saved successfully",
