@@ -160,3 +160,83 @@ Keep the program under 500 words.
     return "Unable to generate personalized workout program at this time. Please try again later.";
   }
 }
+
+/**
+ * Generates a personalized exercise plan based on user health metrics and environment (home/gym)
+ */
+export async function generateExercisePlan(healthMetrics: any, environment: 'home' | 'gym'): Promise<string> {
+  if (!healthMetrics) {
+    return "No health metrics available to generate an exercise plan.";
+  }
+
+  // Calculate BMI for additional context
+  const heightInMeters = healthMetrics.height / 100;
+  const bmi = healthMetrics.weight / (heightInMeters * heightInMeters);
+
+  const prompt = `
+You are a certified personal trainer creating a personalized ${environment} exercise plan.
+Based on the following health metrics:
+
+- Age: ${healthMetrics.age || 30} years
+- Gender: ${healthMetrics.gender || 'Not specified'}
+- Weight: ${healthMetrics.weight || 70} kg
+- Height: ${healthMetrics.height || 170} cm
+- BMI: ${bmi.toFixed(1)} (${getBmiCategory(bmi)})
+- Activity Level: ${healthMetrics.activityLevel || 'moderate'}
+- Fitness Goals: ${healthMetrics.fitnessGoals || 'General fitness improvement'}
+- Chronic Conditions: ${healthMetrics.chronicConditions || 'None reported'}
+
+Create a comprehensive 7-day ${environment} exercise plan. For each day, structure your response exactly as follows:
+
+## Day 1: [Focus Area - e.g., Upper Body, Lower Body, etc.]
+Focus: [Main muscle groups targeted]
+
+### Warm-up:
+[Brief warm-up instructions]
+
+### Exercises:
+**[Exercise 1 Name]** - [Brief description]
+- Sets: [number]
+- Reps: [number or range]
+- Target muscles: [muscle groups]
+- Form tips: [1-2 key form instructions]
+
+**[Exercise 2 Name]** - [Brief description]
+- Sets: [number]
+- Reps: [number or range]
+- Target muscles: [muscle groups]
+- Form tips: [1-2 key form instructions]
+
+[Continue with 4-6 exercises total]
+
+### Cool-down:
+[Brief cool-down instructions]
+
+[Repeat this exact format for Days 2-7]
+
+The plan should:
+1. Be tailored to their current fitness level (${healthMetrics.activityLevel || 'moderate'})
+2. Include specific exercises with sets, reps, and form tips
+3. Provide a balanced approach targeting all major muscle groups
+4. Include 1-2 rest days positioned appropriately
+5. For each day, include 4-6 specific exercises that can be performed at ${environment === 'home' ? 'home with minimal equipment' : 'a standard gym with typical equipment'}
+
+For REST days, simply indicate it's a rest day and provide recovery suggestions.
+`;
+
+  try {
+    const plan = await generateTextToText(prompt);
+    return plan;
+  } catch (error) {
+    console.error(`Error generating ${environment} exercise plan:`, error);
+    return `Unable to generate personalized ${environment} exercise plan at this time. Please try again later.`;
+  }
+}
+
+// Helper function to categorize BMI
+function getBmiCategory(bmi: number): string {
+  if (bmi < 18.5) return 'Underweight';
+  if (bmi < 25) return 'Normal weight';
+  if (bmi < 30) return 'Overweight';
+  return 'Obese';
+}

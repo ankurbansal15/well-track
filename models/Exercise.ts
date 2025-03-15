@@ -1,49 +1,58 @@
 import mongoose from 'mongoose';
 
 export interface IExercise extends mongoose.Document {
-  userId: mongoose.Types.ObjectId;
   name: string;
-  category: string;
-  sets: number;
-  reps: number;
-  caloriesBurned: number;
-  date: Date;
+  description: string;
+  muscleGroups: string[];
+  environment: string[]; // 'home', 'gym', or both
+  difficulty: string;
+  equipment: string[];
+  formTips: string[];
   imageUrl?: string;
+  category: string; // e.g., 'strength', 'cardio', 'flexibility'
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ExerciseSchema = new mongoose.Schema<IExercise>(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
     name: { 
       type: String, 
-      required: true 
+      required: true,
+      unique: true 
     },
-    category: { 
+    description: { 
       type: String, 
-      default: 'other' 
-    },
-    sets: { 
-      type: Number, 
       required: true 
     },
-    reps: { 
-      type: Number, 
+    muscleGroups: { 
+      type: [String], 
       required: true 
     },
-    caloriesBurned: { 
-      type: Number, 
-      required: true 
+    environment: {
+      type: [String],
+      enum: ['home', 'gym'],
+      required: true
     },
-    date: { 
-      type: Date, 
-      default: Date.now 
+    difficulty: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+      required: true
     },
-    imageUrl: { 
-      type: String 
+    equipment: {
+      type: [String],
+      default: []
+    },
+    formTips: {
+      type: [String],
+      default: []
+    },
+    imageUrl: {
+      type: String
+    },
+    category: {
+      type: String,
+      required: true
     }
   },
   { timestamps: true }

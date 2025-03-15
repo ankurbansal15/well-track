@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { v2 as cloudinary } from 'cloudinary';
-import OpenAI from "openai";
+// Remove OpenAI import
+// import OpenAI from "openai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY as string);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -46,51 +47,118 @@ const generateTextAndImageToText = async (prompt: string, imageUrl: string) => {
   }
 };
 
-//Image Generation is not work in the google gemini api
+const generateTextToImage = async (prompt: string, foodName: string = "food") => {
+  // Format the food name for the file name (replace spaces with hyphens)
+  const formattedName = foodName.trim().replace(/\s+/g, "-").toLowerCase();
 
-// const generateTextToImage = async (prompt: string) => {
+  try {
+    // First, check if an image with the same food name already exists in Cloudinary
+    const searchResult = await cloudinary.search
+      .expression(`folder:food_items AND public_id:"food_items/${formattedName}"`)
+      .max_results(1)
+      .execute();
 
-//   // Generate the image
-//   const result = await model.generateContent(prompt);
-//   const text = result.response.text();
-//   // Assuming the response contains a base64 encoded image
-//   const base64Data = text.replace(/^data:image\/\w+;base64,/, '');
-//   const buffer = Buffer.from(base64Data, "base64");
+    // If the image already exists, return its URL
+    if (searchResult && searchResult.resources && searchResult.resources.length > 0) {
+      console.log(`Image for '${foodName}' already exists, reusing it`);
+      return searchResult.resources[0].secure_url;
+    }
 
-//   // Upload to Cloudinary using promise
-//   const cloudinaryUpload = await new Promise((resolve, reject) => {
-//     cloudinary.uploader
-//       .upload_stream(
-//         {
-//           folder: "exercise_tracking",
-//           resource_type: "image",
-//         },
-//         (error, result) => {
-//           if (error) reject(error);
-//           else resolve(result);
-//         }
-//       )
-//       .end(buffer);
-//   });
-//   const imageUrl = (cloudinaryUpload as any).secure_url;
-//   return imageUrl;
-// };
+    // Alternative approach: try to fetch the asset directly by ID
+    try {
+      const result = await new Promise((resolve, reject) => {
+        cloudinary.api.resource(`food_items/${formattedName}`, 
+          (error: any, result: any) => {
+            if (error && error.http_code !== 404) {
+              reject(error);
+            } else if (!error) {
+              resolve(result);
+            } else {
+              resolve(null);
+            }
+          });
+      });
+      
+      if (result) {
+        console.log(`Found existing image for '${foodName}' using direct lookup`);
+        return (result as any).secure_url;
+      }
+    } catch (lookupError) {
+      console.log(`Asset lookup failed:`, lookupError);
+      // Continue with searching a new image
+    }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // If no existing image was found, search for one using Google Search API
+    console.log(`Searching image for '${foodName}'`);
+    
+    // Use Google Custom Search API to find an image
+    // Make sure you have set up Google Custom Search API and have the API key and Search Engine ID
+    const searchQuery = `${foodName} food photography appetizing dish`;
+    const searchUrl = `https://customsearch.googleapis.com/customsearch/v1?` +
+      `key=${process.env.GOOGLE_SEARCH_API_KEY}` +
+      `&cx=${process.env.GOOGLE_SEARCH_ENGINE_ID}` +
+      `&q=${encodeURIComponent(searchQuery)}` +
+      `&searchType=image` +
+      `&imgSize=large` +
+      `&num=1` +
+      `&safe=active`;
+    
+    const searchResponse = await fetch(searchUrl);
+    if (!searchResponse.ok) {
+      throw new Error(`Failed to search for images: ${searchResponse.status}`);
+    }
+    
+    const searchData = await searchResponse.json();
+    
+    if (!searchData.items || searchData.items.length === 0) {
+      throw new Error("No images found in search results");
+    }
+    
+    const imageUrl = searchData.items[0].link;
+    
+    // Fetch the image data from the URL
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+    
+    // Upload to Cloudinary with the food name
+    const cloudinaryUpload = await new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "food_items",
+            public_id: formattedName, // Use the formatted food name as the file name
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        )
+        .end(buffer);
+    });
+    
+    // Return the Cloudinary URL
+    return (cloudinaryUpload as any).secure_url;
+  } catch (error) {
+    console.error("Error in generateTextToImage:", error);
+    throw error;
+  }
+}
 
-const generateTextToImage = async (prompt: string, exerciseName: string = "exercise") => {
+const generateExerciseImage = async (prompt: string, exerciseName: string = "exercise") => {
   // Format the exercise name for the file name (replace spaces with hyphens)
   const formattedName = exerciseName.trim().replace(/\s+/g, "-").toLowerCase();
 
   try {
     // First, check if an image with the same exercise name already exists in Cloudinary
-    // Note: We need to use exact public_id matching with proper quoting
     const searchResult = await cloudinary.search
-      .expression(`folder:exercise_tracking AND public_id:"exercise_tracking/${formattedName}"`)
+      .expression(`folder:exercise_items AND public_id:"exercise_tracking/${formattedName}"`)
       .max_results(1)
       .execute();
-
-    console.log(`Search results for '${formattedName}':`, JSON.stringify(searchResult, null, 2));
 
     // If the image already exists, return its URL
     if (searchResult && searchResult.resources && searchResult.resources.length > 0) {
@@ -119,21 +187,36 @@ const generateTextToImage = async (prompt: string, exerciseName: string = "exerc
       }
     } catch (lookupError) {
       console.log(`Asset lookup failed:`, lookupError);
-      // Continue with generating a new image
+      // Continue with searching a new image
     }
 
-    // If no existing image was found, generate a new one
-    console.log(`Generating new image for '${exerciseName}'`);
+    // If no existing image was found, search for one using Google Search API
+    console.log(`Searching image for '${exerciseName}'`);
     
-    // Generate image using OpenAI
-    const image = await openai.images.generate({ model: "dall-e-2", prompt: prompt });
-
-    // Get the generated image URL
-    const imageUrl = image.data[0]?.url;
+    // Use Google Custom Search API to find an image
+    // Make sure you have set up Google Custom Search API and have the API key and Search Engine ID
+    const searchQuery = `${exerciseName} exercise fitness workout`;
+    const searchUrl = `https://customsearch.googleapis.com/customsearch/v1?` +
+      `key=${process.env.GOOGLE_SEARCH_API_KEY}` +
+      `&cx=${process.env.GOOGLE_SEARCH_ENGINE_ID}` +
+      `&q=${encodeURIComponent(searchQuery)}` +
+      `&searchType=image` +
+      `&imgSize=large` +
+      `&num=1` +
+      `&safe=active`;
     
-    if (!imageUrl) {
-      throw new Error("Failed to generate image");
+    const searchResponse = await fetch(searchUrl);
+    if (!searchResponse.ok) {
+      throw new Error(`Failed to search for images: ${searchResponse.status}`);
     }
+    
+    const searchData = await searchResponse.json();
+    
+    if (!searchData.items || searchData.items.length === 0) {
+      throw new Error("No images found in search results");
+    }
+    
+    const imageUrl = searchData.items[0].link;
     
     // Fetch the image data from the URL
     const response = await fetch(imageUrl);
@@ -163,9 +246,10 @@ const generateTextToImage = async (prompt: string, exerciseName: string = "exerc
     // Return the Cloudinary URL
     return (cloudinaryUpload as any).secure_url;
   } catch (error) {
-    console.error("Error in generateTextToImage:", error);
+    console.error("Error in generateExerciseImage:", error);
     throw error;
   }
-}
+};
 
-export { generateTextToText, generateTextAndImageToText, generateTextToImage };
+
+export { generateTextToText, generateTextAndImageToText, generateTextToImage, generateExerciseImage };

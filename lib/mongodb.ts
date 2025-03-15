@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { string } from 'zod';
 
 // Extend the NodeJS global interface to include mongoose
 declare global {

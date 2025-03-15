@@ -12,6 +12,8 @@ import {
   Sun,
   LogOut,
   GoalIcon,
+  Dumbbell,
+  DumbbellIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -98,6 +100,7 @@ export function AppSidebar() {
     { name: "Health Card", href: "/health-card", icon: Heart },
     { name: "Goals", href: "/goals", icon: GoalIcon },
     { name: "Diet Plan", href: "/diet-plan", icon: Utensils },
+    { name: "Exercise Plan", href: "/exercise-plan", icon: DumbbellIcon },
     { name: "Settings", href: "/settings", icon: Cog6Tooth },
   ];
 
