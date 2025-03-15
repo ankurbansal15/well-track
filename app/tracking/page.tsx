@@ -16,10 +16,18 @@ import {
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
+// Import existing and new chart components
 import { ActivityChart } from "@/components/charts/activity-chart";
 import { NutritionChart } from "@/components/charts/nutrition-chart";
 import { ExerciseBarChart } from "@/components/charts/exercise-chart";
 import { SleepChart } from "@/components/charts/sleep-chart";
+// Import new multi-chart components
+import { MultiSleepChart } from "@/components/charts/multi-sleep-chart";
+import { MultiNutritionChart } from "@/components/charts/multi-nutrition-chart";
+import { MultiExerciseChart } from "@/components/charts/multi-exercise-chart";
+import { MultiActivityChart } from "@/components/charts/multi-activity-chart";
+// Import insights component and generator functions
+import { InsightCard } from "@/components/insights/insight-card";
 
 // Sleep record interface
 interface SleepRecord {
@@ -50,6 +58,19 @@ export default function TrackingPage() {
   // Exercise metrics state
   const [exerciseData, setExerciseData] = useState<any>(null);
   const [exerciseLoading, setExerciseLoading] = useState(false);
+
+  // New state variables for insights
+  const [sleepInsights, setSleepInsights] = useState<string | null>(null);
+  const [activityInsights, setActivityInsights] = useState<string | null>(null);
+  const [nutritionInsights, setNutritionInsights] = useState<string | null>(null);
+  const [exerciseInsights, setExerciseInsights] = useState<string | null>(null);
+  
+  const [loadingInsights, setLoadingInsights] = useState({
+    sleep: false,
+    activity: false,
+    nutrition: false,
+    exercise: false
+  });
 
   // Fetch activity data
   const fetchActivityData = async () => {
@@ -202,6 +223,138 @@ export default function TrackingPage() {
     fetchExerciseData();
   }, []);
 
+  // Generate insights when data is available
+  useEffect(() => {
+    async function generateInitialInsights() {
+      if (sleepData.length > 0 && !sleepInsights && !loadingInsights.sleep) {
+        handleGenerateSleepInsights();
+      }
+      
+      if (activityData && !activityInsights && !loadingInsights.activity) {
+        handleGenerateActivityInsights();
+      }
+      
+      if (nutritionData && !nutritionInsights && !loadingInsights.nutrition) {
+        handleGenerateNutritionInsights();
+      }
+      
+      if (exerciseData?.logs?.length > 0 && !exerciseInsights && !loadingInsights.exercise) {
+        handleGenerateExerciseInsights();
+      }
+    }
+    
+    generateInitialInsights();
+  }, [sleepData, activityData, nutritionData, exerciseData]);
+
+  // Handlers for generating insights using the API
+  const handleGenerateSleepInsights = async () => {
+    setLoadingInsights(prev => ({ ...prev, sleep: true }));
+    try {
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'sleep',
+          data: sleepData
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSleepInsights(data.insights);
+      } else {
+        throw new Error('Failed to generate sleep insights');
+      }
+    } catch (error) {
+      console.error("Error generating sleep insights:", error);
+    } finally {
+      setLoadingInsights(prev => ({ ...prev, sleep: false }));
+    }
+  };
+
+  const handleGenerateActivityInsights = async () => {
+    setLoadingInsights(prev => ({ ...prev, activity: true }));
+    try {
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'activity',
+          data: activityData
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setActivityInsights(data.insights);
+      } else {
+        throw new Error('Failed to generate activity insights');
+      }
+    } catch (error) {
+      console.error("Error generating activity insights:", error);
+    } finally {
+      setLoadingInsights(prev => ({ ...prev, activity: false }));
+    }
+  };
+
+  const handleGenerateNutritionInsights = async () => {
+    setLoadingInsights(prev => ({ ...prev, nutrition: true }));
+    try {
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'nutrition',
+          data: nutritionData
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNutritionInsights(data.insights);
+      } else {
+        throw new Error('Failed to generate nutrition insights');
+      }
+    } catch (error) {
+      console.error("Error generating nutrition insights:", error);
+    } finally {
+      setLoadingInsights(prev => ({ ...prev, nutrition: false }));
+    }
+  };
+
+  const handleGenerateExerciseInsights = async () => {
+    setLoadingInsights(prev => ({ ...prev, exercise: true }));
+    try {
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'exercise',
+          data: exerciseData
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setExerciseInsights(data.insights);
+      } else {
+        throw new Error('Failed to generate exercise insights');
+      }
+    } catch (error) {
+      console.error("Error generating exercise insights:", error);
+    } finally {
+      setLoadingInsights(prev => ({ ...prev, exercise: false }));
+    }
+  };
+
   // Format duration from minutes to hours and minutes
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -325,21 +478,41 @@ export default function TrackingPage() {
               </CardContent>
             </Card>
           </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Activity Timeline</CardTitle>
-              <CardDescription>Your activity throughout the day</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              {activityLoading ? (
-                <div className="h-full flex items-center justify-center">
-                  <Loader2Icon className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <ActivityChart activityData={activityData?.timeline || []} />
-              )}
-            </CardContent>
-          </Card>
+          
+          {/* Enhanced Activity Charts and Insights */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity Timeline</CardTitle>
+                <CardDescription>Visualize your daily activity patterns</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {activityLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : (
+                  <MultiActivityChart activityData={activityData?.timeline || []} />
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity Insights</CardTitle>
+                <CardDescription>AI analysis of your activity patterns</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InsightCard
+                  title="Activity Analysis"
+                  description="Personalized recommendations based on your activity data"
+                  insight={activityInsights}
+                  onRefresh={handleGenerateActivityInsights}
+                  isLoading={loadingInsights.activity}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
         <TabsContent value="nutrition" className="space-y-4">
@@ -409,25 +582,45 @@ export default function TrackingPage() {
               </CardContent>
             </Card>
           </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Macronutrient Distribution</CardTitle>
-              <CardDescription>Your daily macronutrient intake</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              {nutritionLoading ? (
-                <div className="h-full flex items-center justify-center">
-                  <Loader2Icon className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <NutritionChart
-                  protein={nutritionData?.protein_g || 0}
-                  carbs={nutritionData?.carbs_g || 0}
-                  fat={nutritionData?.fats_g || 0}
+          
+          {/* Enhanced Nutrition Charts and Insights */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Macronutrient Analysis</CardTitle>
+                <CardDescription>Visualize your nutritional intake</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {nutritionLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : (
+                  <MultiNutritionChart
+                    protein={nutritionData?.protein_g || 0}
+                    carbs={nutritionData?.carbs_g || 0}
+                    fat={nutritionData?.fats_g || 0}
+                  />
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Nutrition Insights</CardTitle>
+                <CardDescription>AI analysis of your nutritional intake</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InsightCard
+                  title="Nutrition Analysis"
+                  description="Personalized dietary recommendations"
+                  insight={nutritionInsights}
+                  onRefresh={handleGenerateNutritionInsights}
+                  isLoading={loadingInsights.nutrition}
                 />
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
         <TabsContent value="exercise" className="space-y-4">
@@ -497,21 +690,41 @@ export default function TrackingPage() {
               </CardContent>
             </Card>
           </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Exercise Progress</CardTitle>
-              <CardDescription>Your recent exercise activities</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              {exerciseLoading ? (
-                <div className="h-full flex items-center justify-center">
-                  <Loader2Icon className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <ExerciseBarChart exercises={exerciseData?.logs || []} />
-              )}
-            </CardContent>
-          </Card>
+          
+          {/* Enhanced Exercise Charts and Insights */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Exercise Progress</CardTitle>
+                <CardDescription>Multiple views of your exercise data</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {exerciseLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : (
+                  <MultiExerciseChart exercises={exerciseData?.logs || []} />
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Exercise Insights</CardTitle>
+                <CardDescription>AI analysis of your workout patterns</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InsightCard
+                  title="Exercise Analysis"
+                  description="Personalized workout recommendations"
+                  insight={exerciseInsights}
+                  onRefresh={handleGenerateExerciseInsights}
+                  isLoading={loadingInsights.exercise}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
         <TabsContent value="sleep" className="space-y-4">
@@ -603,53 +816,85 @@ export default function TrackingPage() {
               </CardContent>
             </Card>
           </div>
+          
+          {/* Enhanced Sleep Charts and Insights */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sleep Analysis</CardTitle>
+                <CardDescription>Multiple views of your sleep patterns</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {sleepLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : sleepData.length > 0 ? (
+                  <MultiSleepChart sleepData={sleepData} />
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-muted-foreground">No sleep data available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Sleep Insights</CardTitle>
+                <CardDescription>AI analysis of your sleep patterns</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <InsightCard
+                  title="Sleep Recommendations"
+                  description="Personalized sleep improvement tips"
+                  insight={sleepInsights}
+                  onRefresh={handleGenerateSleepInsights}
+                  isLoading={loadingInsights.sleep}
+                />
+              </CardContent>
+            </Card>
+          </div>
+          
           <Card>
             <CardHeader>
-              <CardTitle>Sleep Analysis</CardTitle>
-              <CardDescription>Your sleep patterns and quality over time</CardDescription>
+              <CardTitle>Recent Sleep Records</CardTitle>
+              <CardDescription>Your recent sleep history</CardDescription>
             </CardHeader>
             <CardContent>
               {sleepLoading ? (
-                <div className="flex justify-center items-center h-[200px]">
-                  <Loader2Icon className="h-8 w-8 animate-spin text-muted-foreground" />
+                <div className="flex justify-center items-center h-[100px]">
+                  <Loader2Icon className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : sleepData.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="h-[200px]">
-                    <SleepChart sleepData={sleepData} />
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <h3 className="font-medium mb-2">Recent Sleep Records</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {sleepData.slice(0, 4).map((record) => (
-                        <div key={record._id} className="bg-gradient-to-br from-purple-400/10 to-indigo-500/10 border rounded-md p-3 flex justify-between items-center">
-                          <div>
-                            <div className="font-medium">{format(new Date(record.date), 'MMM dd, yyyy')}</div>
-                            <div className="text-sm text-muted-foreground capitalize">{record.quality} quality</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">{formatDuration(record.duration)}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {format(new Date(record.startTime), 'hh:mm a')} - {format(new Date(record.endTime), 'hh:mm a')}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {sleepData.length > 4 && (
-                      <div className="mt-3 text-center">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href="/tracking/sleep">View all sleep records</Link>
-                        </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sleepData.slice(0, 4).map((record) => (
+                    <div key={record._id} className="bg-gradient-to-br from-purple-400/10 to-indigo-500/10 border rounded-md p-3 flex justify-between items-center">
+                      <div>
+                        <div className="font-medium">{format(new Date(record.date), 'MMM dd, yyyy')}</div>
+                        <div className="text-sm text-muted-foreground capitalize">{record.quality} quality</div>
                       </div>
-                    )}
-                  </div>
+                      <div className="text-right">
+                        <div className="font-medium">{formatDuration(record.duration)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(new Date(record.startTime), 'hh:mm a')} - {format(new Date(record.endTime), 'hh:mm a')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
+                <div className="h-[100px] flex flex-col items-center justify-center text-muted-foreground">
                   <p className="mb-2">No sleep records found</p>
                   <Button size="sm" asChild>
                     <Link href="/tracking/sleep">Add your first sleep record</Link>
+                  </Button>
+                </div>
+              )}
+              {sleepData.length > 4 && (
+                <div className="mt-3 text-center">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/tracking/sleep">View all sleep records</Link>
                   </Button>
                 </div>
               )}
@@ -658,6 +903,6 @@ export default function TrackingPage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
 
