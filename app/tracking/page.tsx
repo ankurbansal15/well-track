@@ -16,6 +16,10 @@ import {
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
+import { ActivityChart } from "@/components/charts/activity-chart";
+import { NutritionChart } from "@/components/charts/nutrition-chart";
+import { ExerciseBarChart } from "@/components/charts/exercise-chart";
+import { SleepChart } from "@/components/charts/sleep-chart";
 
 // Sleep record interface
 interface SleepRecord {
@@ -34,6 +38,110 @@ export default function TrackingPage() {
   const [averageDuration, setAverageDuration] = useState(0);
   const [sleepQuality, setSleepQuality] = useState("N/A");
   const [sleepStreak, setSleepStreak] = useState(0);
+
+  // Activity metrics state
+  const [activityData, setActivityData] = useState<any>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  // Nutrition metrics state
+  const [nutritionData, setNutritionData] = useState<any>(null);
+  const [nutritionLoading, setNutritionLoading] = useState(false);
+
+  // Exercise metrics state
+  const [exerciseData, setExerciseData] = useState<any>(null);
+  const [exerciseLoading, setExerciseLoading] = useState(false);
+
+  // Fetch activity data
+  const fetchActivityData = async () => {
+    setActivityLoading(true);
+    try {
+      const response = await fetch('/api/activity');
+      if (response.ok) {
+        const data = await response.json();
+        setActivityData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching activity data:', error);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  // Fetch nutrition data
+  const fetchNutritionData = async () => {
+    setNutritionLoading(true);
+    try {
+      const response = await fetch('/api/food/tracking?period=today');
+      if (response.ok) {
+        const data = await response.json();
+        setNutritionData({
+          calories: data.calories || 0,
+          protein_g: data.protein_g || 0,
+          carbs_g: data.carbs_g || 0,
+          fats_g: data.fats_g || 0
+        });
+      } else {
+        // Set default data on error
+        setNutritionData({ calories: 0, protein_g: 0, carbs_g: 0, fats_g: 0 });
+      }
+    } catch (error) {
+      console.error('Error fetching nutrition data:', error);
+      // Set default data on error to prevent undefined errors
+      setNutritionData({ calories: 0, protein_g: 0, carbs_g: 0, fats_g: 0 });
+    } finally {
+      setNutritionLoading(false);
+    }
+  };
+
+  // Fetch exercise data
+  const fetchExerciseData = async () => {
+    setExerciseLoading(true);
+    try {
+      const response = await fetch('/api/exercise/log');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && Array.isArray(data.logs)) {
+          const todayExercises = data.logs.filter((log: any) => 
+            new Date(log.date).toDateString() === new Date().toDateString()
+          );
+          setExerciseData({
+            logs: data.logs,
+            stats: {
+              completed: todayExercises.length,
+              totalSets: todayExercises.reduce((acc: number, log: any) => acc + (log.sets || 0), 0),
+              totalReps: todayExercises.reduce((acc: number, log: any) => acc + ((log.sets || 0) * (log.reps || 0)), 0),
+              totalCalories: todayExercises.reduce((acc: number, log: any) => acc + (log.caloriesBurned || 0), 0)
+            }
+          });
+        } else {
+          // Set default data if logs are not available
+          setExerciseData({
+            logs: [],
+            stats: {
+              completed: 0,
+              totalSets: 0,
+              totalReps: 0,
+              totalCalories: 0
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching exercise data:', error);
+      // Set default data on error
+      setExerciseData({
+        logs: [],
+        stats: {
+          completed: 0,
+          totalSets: 0,
+          totalReps: 0,
+          totalCalories: 0
+        }
+      });
+    } finally {
+      setExerciseLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchSleepData() {
@@ -85,6 +193,13 @@ export default function TrackingPage() {
     }
 
     fetchSleepData();
+  }, []);
+
+  // Fetch all data when component mounts
+  useEffect(() => {
+    fetchActivityData();
+    fetchNutritionData();
+    fetchExerciseData();
   }, []);
 
   // Format duration from minutes to hours and minutes
@@ -145,44 +260,68 @@ export default function TrackingPage() {
         
         <TabsContent value="activity" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-cyan-400 to-blue-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Steps</CardTitle>
-                <BoltIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Steps</CardTitle>
+                <BoltIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">6,892</div>
-                <p className="text-xs text-muted-foreground">of 10,000 goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {activityLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    activityData?.steps || 0
+                  )}
+                </div>
+                <p className="text-xs text-cyan-100">of 10,000 goal</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-teal-400 to-emerald-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Distance</CardTitle>
-                <BoltIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Distance</CardTitle>
+                <BoltIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">4.2 km</div>
-                <p className="text-xs text-muted-foreground">of 5 km goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {activityLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    `${activityData?.distance || 0} km`
+                  )}
+                </div>
+                <p className="text-xs text-teal-100">of 5 km goal</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-green-400 to-lime-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Minutes</CardTitle>
-                <BoltIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Active Minutes</CardTitle>
+                <BoltIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">45 min</div>
-                <p className="text-xs text-muted-foreground">of 60 min goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {activityLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    `${activityData?.activeMinutes || 0} min`
+                  )}
+                </div>
+                <p className="text-xs text-green-100">of 60 min goal</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-orange-400 to-red-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Calories Burned</CardTitle>
-                <FireIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Calories Burned</CardTitle>
+                <FireIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">384</div>
-                <p className="text-xs text-muted-foreground">of 500 goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {activityLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    activityData?.caloriesBurned || 0
+                  )}
+                </div>
+                <p className="text-xs text-orange-100">of 500 goal</p>
               </CardContent>
             </Card>
           </div>
@@ -191,210 +330,274 @@ export default function TrackingPage() {
               <CardTitle>Activity Timeline</CardTitle>
               <CardDescription>Your activity throughout the day</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                Activity timeline chart will be displayed here
-              </div>
+            <CardContent className="h-[300px]">
+              {activityLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2Icon className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <ActivityChart activityData={activityData?.timeline || []} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="nutrition" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-amber-400 to-yellow-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Calories Intake</CardTitle>
-                <UtensilsCrossedIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Calories Intake</CardTitle>
+                <UtensilsCrossedIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">1,850</div>
-                <p className="text-xs text-muted-foreground">of 2,200 goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {nutritionLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    nutritionData?.calories || 0
+                  )}
+                </div>
+                <p className="text-xs text-amber-100">of 2,200 goal</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-indigo-400 to-blue-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Protein</CardTitle>
-                <UtensilsCrossedIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Protein</CardTitle>
+                <UtensilsCrossedIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">75g</div>
-                <p className="text-xs text-muted-foreground">of 90g goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {nutritionLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    `${Math.round(nutritionData?.protein_g || 0)}g`
+                  )}
+                </div>
+                <p className="text-xs text-indigo-100">of 90g goal</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-yellow-400 to-orange-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Carbs</CardTitle>
-                <UtensilsCrossedIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Carbs</CardTitle>
+                <UtensilsCrossedIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">220g</div>
-                <p className="text-xs text-muted-foreground">of 250g goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {nutritionLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    `${Math.round(nutritionData?.carbs_g || 0)}g`
+                  )}
+                </div>
+                <p className="text-xs text-yellow-100">of 250g goal</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-red-400 to-rose-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Fat</CardTitle>
-                <UtensilsCrossedIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Fat</CardTitle>
+                <UtensilsCrossedIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">55g</div>
-                <p className="text-xs text-muted-foreground">of 70g goal</p>
+                <div className="text-2xl font-bold text-white">
+                  {nutritionLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    `${Math.round(nutritionData?.fats_g || 0)}g`
+                  )}
+                </div>
+                <p className="text-xs text-red-100">of 70g goal</p>
               </CardContent>
             </Card>
           </div>
           <Card>
             <CardHeader>
-              <CardTitle>Nutrition Breakdown</CardTitle>
-              <CardDescription>Your daily nutrition intake</CardDescription>
+              <CardTitle>Macronutrient Distribution</CardTitle>
+              <CardDescription>Your daily macronutrient intake</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                Nutrition breakdown chart will be displayed here
-              </div>
+            <CardContent className="h-[300px]">
+              {nutritionLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2Icon className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <NutritionChart
+                  protein={nutritionData?.protein_g || 0}
+                  carbs={nutritionData?.carbs_g || 0}
+                  fat={nutritionData?.fats_g || 0}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="exercise" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-emerald-400 to-green-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Exercises Completed</CardTitle>
-                <DumbbellIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Exercises Completed</CardTitle>
+                <DumbbellIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground">Today's total</p>
+                <div className="text-2xl font-bold text-white">
+                  {exerciseLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    exerciseData?.stats?.completed || 0
+                  )}
+                </div>
+                <p className="text-xs text-emerald-100">Today's total</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-sky-400 to-cyan-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Sets</CardTitle>
-                <DumbbellIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Total Sets</CardTitle>
+                <DumbbellIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">9</div>
-                <p className="text-xs text-muted-foreground">Across all exercises</p>
+                <div className="text-2xl font-bold text-white">
+                  {exerciseLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    exerciseData?.stats?.totalSets || 0
+                  )}
+                </div>
+                <p className="text-xs text-sky-100">Across all exercises</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-lime-400 to-green-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Reps</CardTitle>
-                <DumbbellIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Total Reps</CardTitle>
+                <DumbbellIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">90</div>
-                <p className="text-xs text-muted-foreground">Across all exercises</p>
+                <div className="text-2xl font-bold text-white">
+                  {exerciseLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    exerciseData?.stats?.totalReps || 0
+                  )}
+                </div>
+                <p className="text-xs text-lime-100">Across all exercises</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-pink-400 to-rose-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Calories Burned</CardTitle>
-                <FireIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Calories Burned</CardTitle>
+                <FireIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">450</div>
-                <p className="text-xs text-muted-foreground">From exercises</p>
+                <div className="text-2xl font-bold text-white">
+                  {exerciseLoading ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    exerciseData?.stats?.totalCalories || 0
+                  )}
+                </div>
+                <p className="text-xs text-pink-100">From exercises</p>
               </CardContent>
             </Card>
           </div>
           <Card>
             <CardHeader>
-              <CardTitle>Exercise Log</CardTitle>
-              <CardDescription>Your exercise activities for today</CardDescription>
+              <CardTitle>Exercise Progress</CardTitle>
+              <CardDescription>Your recent exercise activities</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                Exercise log details will be displayed here
-              </div>
+            <CardContent className="h-[300px]">
+              {exerciseLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2Icon className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <ExerciseBarChart exercises={exerciseData?.logs || []} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="sleep" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-violet-400 to-purple-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Sleep Duration</CardTitle>
-                <MoonIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Sleep Duration</CardTitle>
+                <MoonIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
                 {sleepLoading ? (
                   <div className="flex items-center space-x-2">
-                    <Loader2Icon className="h-4 w-4 animate-spin" />
-                    <span className="text-muted-foreground">Loading...</span>
+                    <Loader2Icon className="h-4 w-4 animate-spin text-white" />
+                    <span className="text-violet-100">Loading...</span>
                   </div>
                 ) : latestSleep ? (
                   <>
-                    <div className="text-2xl font-bold">{formatDuration(latestSleep.duration)}</div>
-                    <p className="text-xs text-muted-foreground">Last night's sleep</p>
+                    <div className="text-2xl font-bold text-white">{formatDuration(latestSleep.duration)}</div>
+                    <p className="text-xs text-violet-100">Last night's sleep</p>
                   </>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">No data</div>
-                    <p className="text-xs text-muted-foreground">Track your first sleep</p>
+                    <div className="text-2xl font-bold text-white">No data</div>
+                    <p className="text-xs text-violet-100">Track your first sleep</p>
                   </>
                 )}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-blue-400 to-indigo-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Sleep Quality</CardTitle>
-                <MoonIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Sleep Quality</CardTitle>
+                <MoonIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
                 {sleepLoading ? (
                   <div className="flex items-center space-x-2">
-                    <Loader2Icon className="h-4 w-4 animate-spin" />
-                    <span className="text-muted-foreground">Loading...</span>
+                    <Loader2Icon className="h-4 w-4 animate-spin text-white" />
+                    <span className="text-blue-100">Loading...</span>
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{sleepQuality}</div>
-                    <p className="text-xs text-muted-foreground">Based on recent sleep data</p>
+                    <div className="text-2xl font-bold text-white">{sleepQuality}</div>
+                    <p className="text-xs text-blue-100">Based on recent sleep data</p>
                   </>
                 )}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-fuchsia-400 to-pink-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Average Sleep</CardTitle>
-                <MoonIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Average Sleep</CardTitle>
+                <MoonIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
                 {sleepLoading ? (
                   <div className="flex items-center space-x-2">
-                    <Loader2Icon className="h-4 w-4 animate-spin" />
-                    <span className="text-muted-foreground">Loading...</span>
+                    <Loader2Icon className="h-4 w-4 animate-spin text-white" />
+                    <span className="text-fuchsia-100">Loading...</span>
                   </div>
                 ) : averageDuration > 0 ? (
                   <>
-                    <div className="text-2xl font-bold">{formatDuration(averageDuration)}</div>
-                    <p className="text-xs text-muted-foreground">Last 7 days average</p>
+                    <div className="text-2xl font-bold text-white">{formatDuration(averageDuration)}</div>
+                    <p className="text-xs text-fuchsia-100">Last 7 days average</p>
                   </>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">No data</div>
-                    <p className="text-xs text-muted-foreground">Add sleep records first</p>
+                    <div className="text-2xl font-bold text-white">No data</div>
+                    <p className="text-xs text-fuchsia-100">Add sleep records first</p>
                   </>
                 )}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-indigo-400 to-slate-600">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Sleep Streak</CardTitle>
-                <BedIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-white">Sleep Streak</CardTitle>
+                <BedIcon className="h-4 w-4 text-white" />
               </CardHeader>
               <CardContent>
                 {sleepLoading ? (
                   <div className="flex items-center space-x-2">
-                    <Loader2Icon className="h-4 w-4 animate-spin" />
-                    <span className="text-muted-foreground">Loading...</span>
+                    <Loader2Icon className="h-4 w-4 animate-spin text-white" />
+                    <span className="text-indigo-100">Loading...</span>
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{sleepStreak} days</div>
-                    <p className="text-xs text-muted-foreground">Consistent sleep tracking</p>
+                    <div className="text-2xl font-bold text-white">{sleepStreak} days</div>
+                    <p className="text-xs text-indigo-100">Consistent sleep tracking</p>
                   </>
                 )}
               </CardContent>
@@ -412,11 +615,14 @@ export default function TrackingPage() {
                 </div>
               ) : sleepData.length > 0 ? (
                 <div className="space-y-4">
+                  <div className="h-[200px]">
+                    <SleepChart sleepData={sleepData} />
+                  </div>
                   <div className="bg-muted/50 rounded-lg p-4">
                     <h3 className="font-medium mb-2">Recent Sleep Records</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {sleepData.slice(0, 4).map((record) => (
-                        <div key={record._id} className="bg-card border rounded-md p-3 flex justify-between items-center">
+                        <div key={record._id} className="bg-gradient-to-br from-purple-400/10 to-indigo-500/10 border rounded-md p-3 flex justify-between items-center">
                           <div>
                             <div className="font-medium">{format(new Date(record.date), 'MMM dd, yyyy')}</div>
                             <div className="text-sm text-muted-foreground capitalize">{record.quality} quality</div>

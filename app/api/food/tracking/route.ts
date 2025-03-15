@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') || 'today'; // today, week, month, year
+  const period = searchParams.get('period') || 'today';
   
   try {
     // Get user ID from auth session
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
       case 'today':
       default:
         startDate.setHours(0, 0, 0, 0); // Beginning of today
+        now.setHours(23, 59, 59, 999); // End of today
     }
     
     // Query for food entries in the given period
@@ -48,41 +49,34 @@ export async function GET(request: Request) {
       }
     }).lean();
     
-    // Calculate summary statistics
+    // Calculate summary for the tracking page
     const summary = {
-      totalCalories: 0,
-      totalProtein: 0,
-      totalCarbs: 0,
-      totalFats: 0,
+      calories: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fats_g: 0,
       entryCount: entries.length,
-      period: period,
-      dailyAvgCalories: 0,
-      dailyAvgProtein: 0,
-      dailyAvgCarbs: 0,
-      dailyAvgFats: 0
+      period: period
     };
     
     // Sum up the nutritional data
     entries.forEach(entry => {
-      summary.totalCalories += entry.calories;
-      summary.totalProtein += entry.protein_g;
-      summary.totalCarbs += entry.carbs_g;
-      summary.totalFats += entry.fats_g;
+      summary.calories += entry.calories || 0;
+      summary.protein_g += entry.protein_g || 0;
+      summary.carbs_g += entry.carbs_g || 0;
+      summary.fats_g += entry.fats_g || 0;
     });
-    
-    // Calculate daily averages if period is longer than a day
-    if (period !== 'today') {
-      const daysDiff = Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-      summary.dailyAvgCalories = summary.totalCalories / daysDiff;
-      summary.dailyAvgProtein = summary.totalProtein / daysDiff;
-      summary.dailyAvgCarbs = summary.totalCarbs / daysDiff;
-      summary.dailyAvgFats = summary.totalFats / daysDiff;
-    }
     
     return NextResponse.json(summary);
     
   } catch (error) {
     console.error('Database error:', error);
-    return NextResponse.json({ error: 'Failed to fetch food summary' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch nutrition data',
+      calories: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fats_g: 0
+    }, { status: 500 });
   }
 }
