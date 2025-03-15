@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
-import dbConnect from '@/lib/mongodb';
-import FoodEntry from '@/models/FoodEntry';
+import dbConnect from "@/lib/mongodb";
+import FoodEntry from "@/models/FoodEntry";
 import { storeImage } from '@/utils/uploadImage';
 import { updateHistoryOnNewEntry } from '@/utils/updateDailyHistory';
 
@@ -21,83 +23,74 @@ const foodEntrySchema = z.object({
 });
 
 // GET handler - fetch food entries
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  const startDate = searchParams.get('startDate');
-  const endDate = searchParams.get('endDate');
-  
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-  
+export async function GET(req: NextRequest) {
   try {
-    await dbConnect();
+    const session = await getServerSession(authOptions);
     
-    // Build query
-    const query: any = { userId };
-    
-    // Apply date filters if provided
-    if (startDate || endDate) {
-      query.recorded_at = {};
-      if (startDate) query.recorded_at.$gte = new Date(startDate);
-      if (endDate) query.recorded_at.$lte = new Date(endDate);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Get entries, sorted by date (newest first)
-    const entries = await FoodEntry.find(query)
-      .sort({ recorded_at: -1 })
-      .limit(100) // Limit to prevent excessive data return
-      .lean(); // Convert to plain objects for better performance
+    await dbConnect();
+    
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get('limit') || '30');
+    
+    // Get food entries for the user
+    const entries = await FoodEntry.find({ 
+      userId: session.user.id 
+    })
+    .sort({ recorded_at: -1 })
+    .limit(limit);
     
     return NextResponse.json(entries);
-    
   } catch (error) {
-    console.error('Database error:', error);
-    return NextResponse.json({ error: 'Failed to fetch food entries' }, { status: 500 });
+    console.error("Error fetching food entries:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch food entries" },
+      { status: 500 }
+    );
   }
 }
 
 // POST handler - create a new food entry
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const session = await getServerSession(authOptions);
     
-    // Validate the request body
-    const result = foodEntrySchema.safeParse(body);
-    if (!result.success) {
-      return NextResponse.json({ error: result.error.issues }, { status: 400 });
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
     await dbConnect();
     
-    // Process image if available
-    let imageUrl = result.data.image_url;
-    if (imageUrl && imageUrl.startsWith('data:image')) {
-      // Store the image data
-      imageUrl = await storeImage(imageUrl);
-    }
+    const data = await req.json();
     
-    // Create new entry
+    // Create a new food entry
     const newEntry = new FoodEntry({
-      ...result.data,
-      // Provide default values for optional percentage fields
-      protein_percent: result.data.protein_percent ?? 0,
-      carbs_percent: result.data.carbs_percent ?? 0,
-      fats_percent: result.data.fats_percent ?? 0,
-      image_url: imageUrl,
-      recorded_at: new Date()
+      userId: session.user.id,
+      food_name: data.food_name,
+      calories: data.calories,
+      protein_g: data.protein_g,
+      carbs_g: data.carbs_g,
+      fats_g: data.fats_g,
+      fiber_g: data.fiber_g,
+      protein_percent: data.protein_percent,
+      carbs_percent: data.carbs_percent,
+      fats_percent: data.fats_percent,
+      meal_type: data.meal_type || 'Snack',
+      recorded_at: data.recorded_at || new Date(),
+      image_url: data.image_url
     });
     
-    // Save to database
     await newEntry.save();
     
-    // Update the daily history
-    await updateHistoryOnNewEntry(newEntry);
-    
-    return NextResponse.json(newEntry.toObject(), { status: 201 });
+    return NextResponse.json(newEntry);
   } catch (error) {
-    console.error('Error saving food entry:', error);
-    return NextResponse.json({ error: 'Failed to save food entry' }, { status: 500 });
+    console.error("Error creating food entry:", error);
+    return NextResponse.json(
+      { error: "Failed to create food entry" },
+      { status: 500 }
+    );
   }
 }
