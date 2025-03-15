@@ -11,6 +11,7 @@ import {
   Moon,
   Sun,
   LogOut,
+  GoalIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,28 +39,28 @@ export function AppSidebar() {
   const { data: session } = useSession();
   const { state, setOpen } = useSidebar();
   const isExpanded = state === "expanded";
-  
+
   // Store previous state to prevent unnecessary localStorage updates
   const prevStateRef = React.useRef(state);
 
   // Initialize sidebar state from localStorage on component mount only
   useEffect(() => {
     setMounted(true);
-    
+
     // Get saved state from localStorage only on initial mount
-    const savedState = localStorage.getItem('sidebar-state');
-    if (savedState === 'expanded' || savedState === 'collapsed') {
+    const savedState = localStorage.getItem("sidebar-state");
+    if (savedState === "expanded" || savedState === "collapsed") {
       // Only set the state if it's different from the current state
-      if ((savedState === 'expanded') !== (state === 'expanded')) {
-        setOpen(savedState === 'expanded');
+      if ((savedState === "expanded") !== (state === "expanded")) {
+        setOpen(savedState === "expanded");
       }
     }
   }, []); // Empty dependency array to run only once on mount
-  
+
   // Save sidebar state to localStorage only when state actually changes
   useEffect(() => {
     if (mounted && prevStateRef.current !== state) {
-      localStorage.setItem('sidebar-state', state);
+      localStorage.setItem("sidebar-state", state);
       prevStateRef.current = state;
     }
   }, [state, mounted]);
@@ -95,6 +96,7 @@ export function AppSidebar() {
     { name: "Reports", href: "/reports", icon: ChartBarSquare },
     { name: "Daily Tracking", href: "/tracking", icon: ClipboardDocumentList },
     { name: "Health Card", href: "/health-card", icon: Heart },
+    { name: "Goals", href: "/goals", icon: GoalIcon },
     { name: "Diet Plan", href: "/diet-plan", icon: Utensils },
     { name: "Settings", href: "/settings", icon: Cog6Tooth },
   ];
@@ -176,38 +178,38 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-            <SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               onClick={() => setTheme(theme === "light" ? "dark" : "light")}
               tooltip={
-              !isExpanded
-                ? theme === "light"
-                ? "Dark Mode"
-                : "Light Mode"
-                : undefined
+                !isExpanded
+                  ? theme === "light"
+                    ? "Dark Mode"
+                    : "Light Mode"
+                  : undefined
               }
               className="w-full rounded-md hover:bg-primary/30 dark:hover:bg-muted/70 transition-colors"
             >
               <div className="flex h-10 items-center gap-3 px-3">
-              {mounted && (
-                <>
-                {theme === "light" ? (
-                  <Sun className="h-6 w-6 shrink-0" />
-                ) : (
-                  <Moon className="h-6 w-6 shrink-0" />
+                {mounted && (
+                  <>
+                    {theme === "light" ? (
+                      <Sun className="h-6 w-6 shrink-0" />
+                    ) : (
+                      <Moon className="h-6 w-6 shrink-0" />
+                    )}
+                    {isExpanded && (
+                      <span>
+                        {theme === "light" ? "Dark Mode" : "Light Mode"}
+                      </span>
+                    )}
+                  </>
                 )}
-                {isExpanded && (
-                  <span>
-                  {theme === "light" ? "Dark Mode" : "Light Mode"}
-                  </span>
-                )}
-                </>
-              )}
               </div>
             </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               onClick={handleLogout}
@@ -215,11 +217,11 @@ export function AppSidebar() {
               className="w-full rounded-md hover:bg-primary/30 dark:hover:bg-muted/70 transition-colors"
             >
               <div className="flex h-10 items-center gap-3 px-3">
-              <LogOut className="h-5 w-5 shrink-0" />
-              {isExpanded && <span>Logout</span>}
+                <LogOut className="h-5 w-5 shrink-0" />
+                {isExpanded && <span>Logout</span>}
               </div>
             </SidebarMenuButton>
-            </SidebarMenuItem>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
