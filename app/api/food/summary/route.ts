@@ -65,9 +65,9 @@ export async function GET(request: Request) {
     // Sum up the nutritional data
     entries.forEach(entry => {
       summary.totalCalories += entry.calories;
-      summary.totalProtein += entry.protein_g;
-      summary.totalCarbs += entry.carbs_g;
-      summary.totalFats += entry.fats_g;
+      summary.totalProtein += entry.protein_g || 0;
+      summary.totalCarbs += entry.carbs_g || 0;
+      summary.totalFats += entry.fats_g || 0;
     });
     
     // Calculate daily averages if period is longer than a day

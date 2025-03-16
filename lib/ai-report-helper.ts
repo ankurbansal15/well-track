@@ -1,4 +1,7 @@
+'use server';
+
 import { generateTextToText } from './ai-service';
+import { parseJSON } from 'date-fns';
 
 export interface AvailableHealthData {
   healthMetrics?: {
@@ -10,442 +13,249 @@ export interface AvailableHealthData {
     heartRate?: number;
   };
   sleepData?: Array<{
-    date?: Date;
-    duration?: number;
-    quality?: string;
+    date: string;
+    duration: number;
+    quality: number;
   }>;
   nutritionData?: {
-    calories?: number;
-    protein_g?: number;
-    carbs_g?: number;
-    fats_g?: number;
-  };
-  activityData?: {
-    steps?: number;
-    distance?: number;
-    activeMinutes?: number;
-    caloriesBurned?: number;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fats_g: number;
   };
 }
 
-/**
- * Generate missing vital signs data using AI based on available health data
- */
-export async function generateVitalSignsWithAI(availableData: AvailableHealthData) {
+export async function generateVitalSignsWithAI(healthData: AvailableHealthData) {
   try {
-    // Create a summary of the available data for the AI prompt
-    let dataDescription = "Based on the following health data:\n";
+    const bloodPressure = healthData.healthMetrics?.bloodPressure || '120/80';
+    const heartRate = healthData.healthMetrics?.heartRate || 72;
     
-    if (availableData.healthMetrics) {
-      const metrics = availableData.healthMetrics;
-      if (metrics.height) dataDescription += `- Height: ${metrics.height} cm\n`;
-      if (metrics.weight) dataDescription += `- Weight: ${metrics.weight} kg\n`;
-      if (metrics.age) dataDescription += `- Age: ${metrics.age} years\n`;
-      if (metrics.gender) dataDescription += `- Gender: ${metrics.gender}\n`;
-      if (metrics.bloodPressure) dataDescription += `- Blood Pressure: ${metrics.bloodPressure}\n`;
-      if (metrics.heartRate) dataDescription += `- Heart Rate: ${metrics.heartRate} BPM\n`;
-    }
+    // Generate 7 days of blood pressure data
+    const bpData = [];
+    const hrData = [];
     
-    if (availableData.sleepData && availableData.sleepData.length > 0) {
-      const avgDuration = availableData.sleepData.reduce((sum, item) => 
-        sum + (item.duration || 0), 0) / availableData.sleepData.length;
+    for (let i = 0; i < 7; i++) {
+      // Generate plausible variations for systolic and diastolic
+      const [systolic, diastolic] = bloodPressure.split('/').map(Number);
+      const systolicVar = systolic + Math.floor(Math.random() * 10) - 5;
+      const diastolicVar = diastolic + Math.floor(Math.random() * 8) - 4;
       
-      dataDescription += `- Average Sleep Duration: ${Math.round(avgDuration)} minutes\n`;
-    }
-    
-    if (availableData.nutritionData) {
-      const nutrition = availableData.nutritionData;
-      if (nutrition.calories) dataDescription += `- Average Daily Calories: ${nutrition.calories}\n`;
-      if (nutrition.protein_g) dataDescription += `- Average Daily Protein: ${nutrition.protein_g}g\n`;
-      if (nutrition.carbs_g) dataDescription += `- Average Daily Carbs: ${nutrition.carbs_g}g\n`;
-      if (nutrition.fats_g) dataDescription += `- Average Daily Fats: ${nutrition.fats_g}g\n`;
-    }
-    
-    if (availableData.activityData) {
-      const activity = availableData.activityData;
-      if (activity.steps) dataDescription += `- Average Daily Steps: ${activity.steps}\n`;
-      if (activity.activeMinutes) dataDescription += `- Average Daily Active Minutes: ${activity.activeMinutes}\n`;
-    }
-    
-    // Create the prompt for the AI
-    const prompt = `
-${dataDescription}
-
-Please generate realistic vital signs data for this person. Return the data formatted as JSON matching the following structure:
-{
-  "bloodPressure": {
-    "current": "120/80 mmHg",
-    "trend": "Stable|Increasing|Decreasing",
-    "lastMeasured": "2 hours ago",
-    "chartData": [
-      { "date": "Jan 1", "value": 120 },
-      { "date": "Jan 2", "value": 122 }
-    ]
-  },
-  "heartRate": {
-    "current": "72 BPM",
-    "trend": "Stable|Increasing|Decreasing",
-    "lastMeasured": "1 hour ago",
-    "chartData": [
-      { "date": "Jan 1", "value": 72 },
-      { "date": "Jan 2", "value": 74 }
-    ]
-  },
-  "temperature": {
-    "current": "98.6°F",
-    "trend": "Normal",
-    "lastMeasured": "6 hours ago"
-  },
-  "respiratoryRate": {
-    "current": "16 breaths/min",
-    "trend": "Normal",
-    "lastMeasured": "6 hours ago"
-  }
-}
-
-Use realistic physiological values based on the provided health metrics. The chart data should include 5 data points with reasonable progression.
-`;
-
-    // Get AI response
-    const aiResponse = await generateTextToText(prompt);
-    
-    // Parse the JSON response
-    try {
-      // Extract JSON from the response (in case the AI adds extra text)
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in AI response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI vital signs response:", parseError);
-      return generateFallbackVitalSigns();
-    }
-    
-  } catch (error) {
-    console.error("Error generating vital signs with AI:", error);
-    return generateFallbackVitalSigns();
-  }
-}
-
-/**
- * Generate missing nutrition advice using AI based on available health data
- */
-export async function generateNutritionAdviceWithAI(availableData: AvailableHealthData, healthScore: number) {
-  try {
-    // Create a summary of the available data for the AI prompt
-    let dataDescription = "Based on the following health data:\n";
-    
-    if (availableData.healthMetrics) {
-      const metrics = availableData.healthMetrics;
-      if (metrics.height) dataDescription += `- Height: ${metrics.height} cm\n`;
-      if (metrics.weight) dataDescription += `- Weight: ${metrics.weight} kg\n`;
-      if (metrics.age) dataDescription += `- Age: ${metrics.age} years\n`;
-      if (metrics.gender) dataDescription += `- Gender: ${metrics.gender}\n`;
-    }
-    
-    if (availableData.nutritionData) {
-      const nutrition = availableData.nutritionData;
-      if (nutrition.calories) dataDescription += `- Average Daily Calories: ${nutrition.calories}\n`;
-      if (nutrition.protein_g) dataDescription += `- Average Daily Protein: ${nutrition.protein_g}g\n`;
-      if (nutrition.carbs_g) dataDescription += `- Average Daily Carbs: ${nutrition.carbs_g}g\n`;
-      if (nutrition.fats_g) dataDescription += `- Average Daily Fats: ${nutrition.fats_g}g\n`;
-    }
-    
-    dataDescription += `- Overall Health Score: ${healthScore}/100\n`;
-    
-    // Create the prompt for the AI
-    const prompt = `
-${dataDescription}
-
-Please generate personalized nutrition advice for this person. Return the data formatted as JSON matching the following structure:
-{
-  "summary": "Overall assessment of their current nutrition status",
-  "recommendations": [
-    "Specific recommendation 1",
-    "Specific recommendation 2",
-    "Specific recommendation 3",
-    "Specific recommendation 4"
-  ]
-}
-
-The advice should be personalized based on the data provided and include practical, actionable recommendations.
-`;
-
-    // Get AI response
-    const aiResponse = await generateTextToText(prompt);
-    
-    // Parse the JSON response
-    try {
-      // Extract JSON from the response
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in AI response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI nutrition advice response:", parseError);
-      return generateFallbackNutritionAdvice(healthScore);
-    }
-    
-  } catch (error) {
-    console.error("Error generating nutrition advice with AI:", error);
-    return generateFallbackNutritionAdvice(healthScore);
-  }
-}
-
-/**
- * Generate missing health predictions using AI based on available health data
- */
-export async function generateHealthPredictionsWithAI(availableData: AvailableHealthData, healthScore: number) {
-  try {
-    // Create a summary of the available data for the AI prompt
-    let dataDescription = "Based on the following health data:\n";
-    
-    if (availableData.healthMetrics) {
-      const metrics = availableData.healthMetrics;
-      if (metrics.height) dataDescription += `- Height: ${metrics.height} cm\n`;
-      if (metrics.weight) dataDescription += `- Weight: ${metrics.weight} kg\n`;
-      if (metrics.age) dataDescription += `- Age: ${metrics.age} years\n`;
-      if (metrics.gender) dataDescription += `- Gender: ${metrics.gender}\n`;
-      if (metrics.bloodPressure) dataDescription += `- Blood Pressure: ${metrics.bloodPressure}\n`;
-      if (metrics.heartRate) dataDescription += `- Heart Rate: ${metrics.heartRate} BPM\n`;
-    }
-    
-    if (availableData.sleepData && availableData.sleepData.length > 0) {
-      const avgDuration = availableData.sleepData.reduce((sum, item) => 
-        sum + (item.duration || 0), 0) / availableData.sleepData.length;
+      bpData.push(`${systolicVar}/${diastolicVar}`);
       
-      dataDescription += `- Average Sleep Duration: ${Math.round(avgDuration)} minutes\n`;
+      // Generate plausible variations for heart rate
+      const hrVar = heartRate + Math.floor(Math.random() * 8) - 4;
+      hrData.push(hrVar);
     }
     
-    dataDescription += `- Overall Health Score: ${healthScore}/100\n`;
-    
-    let bmi = "";
-    if (availableData.healthMetrics?.height && availableData.healthMetrics?.weight) {
-      const heightInMeters = availableData.healthMetrics.height / 100;
-      const bmiValue = availableData.healthMetrics.weight / (heightInMeters * heightInMeters);
-      bmi = bmiValue.toFixed(1);
-      dataDescription += `- BMI: ${bmi}\n`;
-    }
-    
-    // Create the prompt for the AI
     const prompt = `
-${dataDescription}
+      As a medical AI, generate a realistic vital signs report based on these health metrics:
+      - Blood Pressure: ${bloodPressure}
+      - Heart Rate: ${heartRate} bpm
+      - Age: ${healthData.healthMetrics?.age || 'unknown'}
+      - Gender: ${healthData.healthMetrics?.gender || 'unknown'}
 
-Please generate 3 realistic health predictions for this person. Return the data formatted as JSON matching the following structure:
-[
-  {
-    "title": "Prediction Category",
-    "prediction": "What is likely to happen in their health journey",
-    "recommendation": "What they should do about it",
-    "timeframe": "Over what period this might happen"
+      Return the data in this JSON format only, no explanations:
+      {
+        "bloodPressure": {
+          "current": "${bloodPressure}",
+          "trend": "stable", // one of: "improving", "worsening", "stable", "fluctuating"
+          "lastMeasured": "today",
+          "chartData": ${JSON.stringify(bpData)}
+        },
+        "heartRate": {
+          "current": ${heartRate},
+          "trend": "stable", // one of: "improving", "worsening", "stable", "fluctuating"
+          "lastMeasured": "today",
+          "chartData": ${JSON.stringify(hrData)}
+        },
+        "temperature": {
+          "current": "98.6°F",
+          "trend": "stable",
+          "lastMeasured": "today"
+        },
+        "respiratoryRate": {
+          "current": "16 bpm",
+          "trend": "stable",
+          "lastMeasured": "today"
+        }
+      }
+    `;
+
+    const aiResponse = await generateTextToText(prompt);
+    return JSON.parse(aiResponse);
+  } catch (error) {
+    console.error('Error generating vital signs with AI:', error);
+    
+    // Return fallback data
+    return {
+      bloodPressure: {
+        current: healthData.healthMetrics?.bloodPressure || '120/80',
+        trend: "stable",
+        lastMeasured: "today",
+        chartData: ["118/78", "121/79", "120/80", "122/81", "119/78", "120/82", "121/80"]
+      },
+      heartRate: {
+        current: healthData.healthMetrics?.heartRate || 72,
+        trend: "stable",
+        lastMeasured: "today",
+        chartData: [70, 72, 74, 71, 73, 72, 70]
+      },
+      temperature: {
+        current: "98.6°F",
+        trend: "stable",
+        lastMeasured: "today"
+      },
+      respiratoryRate: {
+        current: "16 bpm",
+        trend: "stable",
+        lastMeasured: "today"
+      }
+    };
   }
-]
+}
 
-The predictions should cover different aspects of health (e.g., weight management, cardiovascular health, sleep quality, etc.) and be based on the provided metrics.
-`;
+export async function generateNutritionAdviceWithAI(healthData: AvailableHealthData, healthScore: number) {
+  try {
+    const prompt = `
+      As a nutrition expert AI, provide 3-5 personalized nutrition advice points based on these health metrics:
+      - Weight: ${healthData.healthMetrics?.weight || 'unknown'} kg
+      - Height: ${healthData.healthMetrics?.height || 'unknown'} cm
+      - Age: ${healthData.healthMetrics?.age || 'unknown'}
+      - Gender: ${healthData.healthMetrics?.gender || 'unknown'}
+      - Health Score: ${healthScore}/100
+      ${healthData.nutritionData ? `
+      - Average Calorie Intake: ${healthData.nutritionData.calories} kcal
+      - Average Protein: ${healthData.nutritionData.protein_g}g
+      - Average Carbs: ${healthData.nutritionData.carbs_g}g
+      - Average Fats: ${healthData.nutritionData.fats_g}g
+      ` : ''}
 
-    // Get AI response
+      Return ONLY an array of advice strings, no explanations or other text - just the JSON array:
+    `;
+
     const aiResponse = await generateTextToText(prompt);
     
-    // Parse the JSON response
     try {
-      // Extract JSON from the response
-      const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in AI response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI predictions response:", parseError);
-      return generateFallbackPredictions(availableData, healthScore);
+      // Attempt to parse the response as JSON
+      return JSON.parse(aiResponse);
+    } catch (error) {
+      // If parsing fails, extract advice points with regex
+      const advicePoints = aiResponse
+        .split(/[\n\r]+/)
+        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('•'))
+        .map(line => line.replace(/^[-•]\s*/, '').trim());
+      
+      return advicePoints.length > 0 ? advicePoints : [
+        "Consider increasing your protein intake to support muscle maintenance.",
+        "Try to include more fruits and vegetables in your diet for essential vitamins.",
+        "Stay hydrated by drinking at least 2 liters of water daily."
+      ];
     }
-    
   } catch (error) {
-    console.error("Error generating health predictions with AI:", error);
-    return generateFallbackPredictions(availableData, healthScore);
-  }
-}
-
-// Generate fallback vital signs data if AI fails
-function generateFallbackVitalSigns() {
-  return {
-    bloodPressure: {
-      current: "120/80 mmHg",
-      trend: "Stable",
-      lastMeasured: "No recent data",
-      chartData: [
-        { date: "Day 1", value: 120 },
-        { date: "Day 2", value: 118 },
-        { date: "Day 3", value: 122 },
-        { date: "Day 4", value: 119 },
-        { date: "Day 5", value: 120 }
-      ]
-    },
-    heartRate: {
-      current: "72 BPM",
-      trend: "Stable",
-      lastMeasured: "No recent data",
-      chartData: [
-        { date: "Day 1", value: 72 },
-        { date: "Day 2", value: 74 },
-        { date: "Day 3", value: 71 },
-        { date: "Day 4", value: 73 },
-        { date: "Day 5", value: 72 }
-      ]
-    },
-    temperature: {
-      current: "98.6°F",
-      trend: "Normal",
-      lastMeasured: "No recent data"
-    },
-    respiratoryRate: {
-      current: "16 breaths/min",
-      trend: "Normal",
-      lastMeasured: "No recent data"
-    }
-  };
-}
-
-// Generate fallback nutrition advice if AI fails
-function generateFallbackNutritionAdvice(healthScore: number) {
-  if (healthScore > 80) {
-    return {
-      summary: "Your current nutritional balance appears optimal for your health profile.",
-      recommendations: [
-        "Continue with your balanced macronutrient intake, with emphasis on high-quality protein sources.",
-        "Consider incorporating more varied fruits and vegetables to ensure a diverse micronutrient profile.",
-        "Your current caloric intake aligns well with your activity level. Adjusting by ±100-200 calories may help with specific fitness goals.",
-        "Periodic meal planning may help maintain this excellent nutritional profile during busy periods."
-      ]
-    };
-  } else if (healthScore > 60) {
-    return {
-      summary: "Your nutritional patterns show good foundations with opportunities for optimization.",
-      recommendations: [
-        "Consider increasing protein intake to support muscle maintenance and metabolic health.",
-        "Your carbohydrate sources could be shifted more toward complex carbs with lower glycemic impact.",
-        "Including more healthy fats from sources like avocados, nuts, and olive oil may improve overall nutrient absorption.",
-        "Ensuring consistent meal timing could help optimize energy levels throughout the day."
-      ]
-    };
-  } else {
-    return {
-      summary: "Your nutritional data suggests several areas for potential improvement.",
-      recommendations: [
-        "Consider balancing your macronutrient intake with an emphasis on increasing protein consumption.",
-        "Reducing processed carbohydrates and increasing fiber intake could improve metabolic markers.",
-        "Your daily caloric intake may need adjustment to better align with your activity level and health goals.",
-        "Staying hydrated and establishing regular meal patterns could help regulate appetite and energy levels."
-      ]
-    };
-  }
-}
-
-// Generate fallback predictions if AI fails
-function generateFallbackPredictions(availableData: AvailableHealthData, healthScore: number) {
-  const predictions = [];
-  
-  // Weight-related prediction
-  let bmi = 0;
-  
-  if (availableData.healthMetrics?.height && availableData.healthMetrics?.weight) {
-    const heightInMeters = availableData.healthMetrics.height / 100;
-    bmi = availableData.healthMetrics.weight / (heightInMeters * heightInMeters);
-  }
-  
-  if (bmi > 0) {
-    if (bmi > 25) {
-      predictions.push({
-        title: "Weight Management",
-        prediction: "Based on your current BMI and activity patterns, you may see gradual weight reduction with consistent lifestyle changes.",
-        recommendation: "Aim for a caloric deficit of 300-500 calories daily through combined diet adjustments and increased physical activity.",
-        timeframe: "3-6 months"
-      });
-    } else if (bmi < 18.5) {
-      predictions.push({
-        title: "Weight Management",
-        prediction: "Your current BMI suggests you may benefit from a structured plan to achieve healthy weight gain.",
-        recommendation: "Focus on nutrient-dense foods and consider increasing caloric intake by 300-500 calories daily.",
-        timeframe: "3-6 months"
-      });
-    } else {
-      predictions.push({
-        title: "Weight Stability",
-        prediction: "Your weight appears stable within a healthy range. Continuing current habits should maintain this stability.",
-        recommendation: "Regular monitoring and maintaining balanced nutrition will support your long-term health goals.",
-        timeframe: "Ongoing"
-      });
-    }
-  }
-  
-  // Sleep-related prediction
-  if (availableData.sleepData && availableData.sleepData.length > 0) {
-    const avgDuration = availableData.sleepData.reduce((sum, record) => 
-      sum + (record.duration || 0), 0) / availableData.sleepData.length;
+    console.error('Error generating nutrition advice with AI:', error);
     
-    if (avgDuration < 420) { // Less than 7 hours
-      predictions.push({
-        title: "Sleep Optimization",
-        prediction: "Improving your sleep duration and quality could significantly enhance your overall health metrics.",
-        recommendation: "Aim to increase sleep duration by 30-60 minutes and establish a consistent sleep schedule.",
-        timeframe: "2-4 weeks"
-      });
-    } else {
-      predictions.push({
-        title: "Sleep Maintenance",
-        prediction: "Your current sleep patterns appear conducive to good health. Maintaining these patterns will support continued well-being.",
-        recommendation: "Continue your current sleep habits and consider periodic sleep quality assessments.",
-        timeframe: "Ongoing"
-      });
-    }
+    // Return fallback advice
+    return [
+      "Consider increasing your protein intake to support muscle maintenance.",
+      "Try to include more fruits and vegetables in your diet for essential vitamins.",
+      "Stay hydrated by drinking at least 2 liters of water daily.",
+      "Monitor your portion sizes to maintain a healthy calorie balance.",
+      "Include sources of healthy fats like avocados, nuts and olive oil."
+    ];
   }
-  
-  // General health prediction based on health score
-  if (healthScore < 70) {
-    predictions.push({
-      title: "Health Score Improvement",
-      prediction: "With targeted lifestyle adjustments, your health score could improve by 10-15 points.",
-      recommendation: "Focus on consistent sleep patterns, increased physical activity, and a more balanced diet to see improvements within 8-12 weeks.",
-      timeframe: "2-3 months"
-    });
-  } else if (healthScore >= 70 && healthScore < 85) {
-    predictions.push({
-      title: "Health Score Optimization",
-      prediction: "Maintaining your current habits while implementing small refinements could elevate your health score to the excellent range.",
-      recommendation: "Consider minor adjustments to your nutrition and activity patterns, along with stress management techniques.",
-      timeframe: "1-2 months"
-    });
-  } else {
-    predictions.push({
-      title: "Health Score Maintenance",
-      prediction: "Your excellent health score reflects optimal lifestyle choices. Focus on consistency and periodic reassessment.",
-      recommendation: "Continue your current habits and consider exploring advanced wellness practices like meditation or periodized exercise.",
-      timeframe: "Ongoing"
-    });
-  }
-  
-  // Ensure we return at least 3 predictions
-  if (predictions.length < 3) {
-    predictions.push({
-      title: "Cardiovascular Health",
-      prediction: "Regular cardiovascular exercise could improve your heart health metrics.",
-      recommendation: "Consider incorporating 150 minutes of moderate aerobic activity per week.",
-      timeframe: "3-6 months"
-    });
+}
+
+export async function generateHealthPredictionsWithAI(healthData: AvailableHealthData, healthScore: number) {
+  try {
+    const prompt = `
+      As a predictive health AI, provide 3-4 potential health predictions or insights based on these metrics:
+      - Blood Pressure: ${healthData.healthMetrics?.bloodPressure || 'unknown'}
+      - Heart Rate: ${healthData.healthMetrics?.heartRate || 'unknown'} bpm
+      - Weight: ${healthData.healthMetrics?.weight || 'unknown'} kg
+      - Height: ${healthData.healthMetrics?.height || 'unknown'} cm
+      - Age: ${healthData.healthMetrics?.age || 'unknown'}
+      - Gender: ${healthData.healthMetrics?.gender || 'unknown'}
+      - Health Score: ${healthScore}/100
+
+      Be realistic and helpful, but not alarmist. Focus on preventive care and maintenance.
+      Return ONLY an array of prediction strings, no explanations or other text - just the JSON array:
+    `;
+
+    const aiResponse = await generateTextToText(prompt);
     
-    predictions.push({
-      title: "Stress Management",
-      prediction: "Implementing regular stress management techniques could improve overall well-being.",
-      recommendation: "Try incorporating mindfulness practices or meditation for 10 minutes daily.",
-      timeframe: "4-8 weeks"
-    });
+    try {
+      // Attempt to parse the response as JSON
+      return JSON.parse(aiResponse);
+    } catch (error) {
+      // If parsing fails, extract prediction points with regex
+      const predictions = aiResponse
+        .split(/[\n\r]+/)
+        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('•'))
+        .map(line => line.replace(/^[-•]\s*/, '').trim());
+      
+      return predictions.length > 0 ? predictions : [
+        "If current trends continue, your cardiovascular fitness will likely improve over the next 3 months.",
+        "Maintaining your current activity level could help prevent age-related muscle loss.",
+        "Your current health indicators suggest a lower risk for metabolic disorders."
+      ];
+    }
+  } catch (error) {
+    console.error('Error generating health predictions with AI:', error);
+    
+    // Return fallback predictions
+    return [
+      "If current trends continue, your cardiovascular fitness will likely improve over the next 3 months.",
+      "Maintaining your current activity level could help prevent age-related muscle loss.",
+      "Your current health indicators suggest a lower risk for metabolic disorders.",
+      "Consider scheduling a regular check-up to monitor your blood pressure trends."
+    ];
   }
-  
-  // Return first 3 predictions
-  return predictions.slice(0, 3);
+}
+
+export async function generateHealthRecommendationsWithAI(healthData: AvailableHealthData) {
+  try {
+    const prompt = `
+      As a health recommendations AI, provide 3-5 personalized health recommendations based on these metrics:
+      - Blood Pressure: ${healthData.healthMetrics?.bloodPressure || 'unknown'}
+      - Heart Rate: ${healthData.healthMetrics?.heartRate || 'unknown'} bpm
+      - Weight: ${healthData.healthMetrics?.weight || 'unknown'} kg
+      - Height: ${healthData.healthMetrics?.height || 'unknown'} cm
+      - Age: ${healthData.healthMetrics?.age || 'unknown'}
+      - Gender: ${healthData.healthMetrics?.gender || 'unknown'}
+
+      Be specific, actionable, and practical. Focus on sustainable health improvements.
+      Return ONLY an array of recommendation strings, no explanations or other text - just the JSON array:
+    `;
+
+    const aiResponse = await generateTextToText(prompt);
+    
+    try {
+      // Attempt to parse the response as JSON
+      return JSON.parse(aiResponse);
+    } catch (error) {
+      // If parsing fails, extract recommendation points with regex
+      const recommendations = aiResponse
+        .split(/[\n\r]+/)
+        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('•'))
+        .map(line => line.replace(/^[-•]\s*/, '').trim());
+      
+      return recommendations.length > 0 ? recommendations : [
+        "Incorporate 30 minutes of moderate exercise most days of the week.",
+        "Practice stress reduction techniques like meditation or deep breathing for 10 minutes daily.",
+        "Ensure you get 7-8 hours of quality sleep each night.",
+        "Stay hydrated by drinking water throughout the day."
+      ];
+    }
+  } catch (error) {
+    console.error('Error generating health recommendations with AI:', error);
+    
+    // Return fallback recommendations
+    return [
+      "Incorporate 30 minutes of moderate exercise most days of the week.",
+      "Practice stress reduction techniques like meditation or deep breathing for 10 minutes daily.",
+      "Ensure you get 7-8 hours of quality sleep each night.",
+      "Stay hydrated by drinking water throughout the day.",
+      "Schedule regular health check-ups to monitor your progress."
+    ];
+  }
 }
