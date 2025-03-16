@@ -26,10 +26,10 @@ export async function updateDailyHistory(userId: string, date: Date): Promise<vo
     
     // Calculate totals
     const totals = entries.reduce((acc, entry) => {
-      acc.calories += entry.calories;
-      acc.protein += entry.protein_g;
-      acc.carbs += entry.carbs_g;
-      acc.fats += entry.fats_g;
+      acc.calories += entry.calories || 0;
+      acc.protein += entry.protein_g || 0;
+      acc.carbs += entry.carbs_g || 0;
+      acc.fats += entry.fats_g || 0;
       acc.entryIds.push(entry._id as mongoose.Types.ObjectId);
       return acc;
     }, { 
