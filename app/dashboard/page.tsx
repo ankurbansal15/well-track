@@ -13,6 +13,8 @@ import FillData from "@/components/fill-data"
 import { HealthMetricsDisplay } from "@/components/health-metrics-display"
 import { HealthInsights } from "@/components/insights/health-insights"
 import { FireIcon } from "@heroicons/react/24/solid"
+import { format } from "date-fns"
+import { Loader } from "@/components/loader"
 
 interface HealthMetrics {
   id: string
@@ -49,15 +51,108 @@ interface HealthMetrics {
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
+ const router = useRouter()
   const { data: session, status } = useSession()
   const [healthMetrics, setHealthMetrics] = useState<HealthMetrics | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("overview")
+  const [historyData, setHistoryData] = useState<any[]>([])
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [lastFetchTime, setLastFetchTime] = useState(0)
+
+  // Robust data fetching with exponential backoff
+  const fetchHealthMetricsWithRetry = async (retryCount = 0, delay = 1000) => {
+    // Avoid refetching if we just fetched recently (within 2 seconds)
+    const now = Date.now()
+    if (now - lastFetchTime < 2000 && retryCount > 0) {
+      return
+    }
+    
+    setLoading(true)
+    setFetchError(null)
+    setLastFetchTime(now)
+    
+    try {
+      console.log(`Attempting to fetch health metrics (attempt ${retryCount + 1})`)
+      
+      // Make sure we're bypassing cache completely
+      const response = await fetch(`/api/health/latest?t=${now}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+        next: { revalidate: 0 },
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      
+      if (!data || Object.keys(data).length === 0) {
+        throw new Error("Empty data received")
+      }
+      
+      console.log("Successfully loaded health metrics:", data)
+      setHealthMetrics(data)
+      return true
+    } catch (error) {
+      console.error(`Error fetching health metrics (attempt ${retryCount + 1}):`, error)
+      setFetchError(`Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      
+      // Implement exponential backoff for retries
+      const maxRetries = 5
+      if (retryCount < maxRetries) {
+        const nextDelay = delay * 1.5 // Exponential backoff
+        console.log(`Retrying in ${nextDelay}ms...`)
+        
+        setTimeout(() => {
+          fetchHealthMetricsWithRetry(retryCount + 1, nextDelay)
+        }, nextDelay)
+      }
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchHistoryData = async () => {
+    try {
+      const response = await fetch("/api/health/history")
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch health history")
+      }
+      
+      const data = await response.json()
+      setHistoryData(data)
+    } catch (error) {
+      console.error("Error fetching health history:", error)
+    }
+  }
 
   useEffect(() => {
     // Only fetch data if the user is authenticated
     if (status === "authenticated") {
-      fetchHealthMetrics()
+      fetchHealthMetricsWithRetry()
+      fetchHistoryData()
+      // Setup an interval to check if data is loaded
+      // This helps in cases where the initial load fails
+      const checkInterval = setInterval(() => {
+        if (!healthMetrics && !loading) {
+          console.log("No health metrics loaded yet, retrying fetch...")
+          fetchHealthMetricsWithRetry()
+        } else if (healthMetrics) {
+          // Clear interval once we have data
+          clearInterval(checkInterval)
+        }
+      }, 3000) // Check every 3 seconds
+      
+      // Cleanup interval on unmount
+      return () => clearInterval(checkInterval)
     } else if (status === "unauthenticated") {
       // If definitely not authenticated, redirect to login
       router.push("/login")
@@ -65,32 +160,15 @@ export default function DashboardPage() {
     // Don't do anything while status is "loading"
   }, [status, router])
 
-  const fetchHealthMetrics = async () => {
-    try {
-      const response = await fetch("/api/health/latest")
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch health metrics")
-      }
-      
-      const data = await response.json()
-      setHealthMetrics(data)
-    } catch (error) {
-      console.error("Error fetching health metrics:", error)
-    } finally {
-      setLoading(false)
-    }
+  // Add a manual refresh option for users
+  const handleManualRefresh = () => {
+    fetchHealthMetricsWithRetry()
   }
 
   // Show loading state while checking authentication or fetching data
-  if (status === "loading" || (status === "authenticated" && loading)) {
+  if (status === "loading" || (status === "authenticated" && loading && !healthMetrics)) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-100px)]">
-        <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading your dashboard...</p>
-        </div>
-      </div>
+      <Loader />
     )
   }
 
@@ -99,13 +177,38 @@ export default function DashboardPage() {
     return null
   }
 
-  // If authenticated but no health data
+  // If authenticated but no health data and not currently loading
   if (!healthMetrics && !loading) {
     return (
-      <FillData/>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-6">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2">Unable to load your health data</h2>
+          <p className="text-muted-foreground mb-4">
+            {fetchError || "We're having trouble connecting to the server."}
+          </p>
+          <Button onClick={handleManualRefresh} className="mb-4">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Retry Loading Data
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            If this issue persists, you might need to fill in your health profile.
+          </p>
+        </div>
+        <FillData />
+      </div>
     )
   }
-
+  
+    // Extract blood pressure values if available
+    let systolic = 0, diastolic = 0;
+    if (healthMetrics?.bloodPressure) {
+      const parts = healthMetrics.bloodPressure.split('/');
+      if (parts.length === 2) {
+        systolic = parseInt(parts[0], 10);
+        diastolic = parseInt(parts[1], 10);
+      }
+    }
+    
 
   return (
     <div className="w-full grid gap-6">
@@ -117,7 +220,7 @@ export default function DashboardPage() {
         <Button onClick={() => router.push("/health-form")}>Update Health Data</Button>
       </div>
 
-           <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs defaultValue={activeTab} className="space-y-6">
         <TabsList className="grid grid-cols-4 h-14 mb-6">
           <TabsTrigger value="overview" className="text-base">Overview</TabsTrigger>
           <TabsTrigger value="details" className="text-base">Health Details</TabsTrigger>

@@ -105,16 +105,19 @@ const tabContentVariants = {
 
 export default function MetricsPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
-  const [healthMetrics, setHealthMetrics] = useState<HealthMetrics | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("overview")
-  const [historyData, setHistoryData] = useState<any[]>([])
+   const { data: session, status } = useSession()
+   const [healthMetrics, setHealthMetrics] = useState<HealthMetrics | null>(null)
+   const [loading, setLoading] = useState(true)
+   const [activeTab, setActiveTab] = useState("overview")
+   const [historyData, setHistoryData] = useState<any[]>([])
+   const [fetchError, setFetchError] = useState<string | null>(null)
+   const [lastFetchTime, setLastFetchTime] = useState(0)
+ 
 
   useEffect(() => {
     // Only fetch data if the user is authenticated
     if (status === "authenticated") {
-      fetchHealthMetrics()
+      fetchHealthMetricsWithRetry()
       fetchHistoryData()
     } else if (status === "unauthenticated") {
       // If definitely not authenticated, redirect to login
@@ -123,18 +126,59 @@ export default function MetricsPage() {
     // Don't do anything while status is "loading"
   }, [status, router])
 
-  const fetchHealthMetrics = async () => {
+  const fetchHealthMetricsWithRetry = async (retryCount = 0, delay = 1000) => {
+    // Avoid refetching if we just fetched recently (within 2 seconds)
+    const now = Date.now()
+    if (now - lastFetchTime < 2000 && retryCount > 0) {
+      return
+    }
+    
+    setLoading(true)
+    setFetchError(null)
+    setLastFetchTime(now)
+    
     try {
-      const response = await fetch("/api/health/latest")
+      console.log(`Attempting to fetch health metrics (attempt ${retryCount + 1})`)
+      
+      // Make sure we're bypassing cache completely
+      const response = await fetch(`/api/health/latest?t=${now}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+        next: { revalidate: 0 },
+      })
       
       if (!response.ok) {
-        throw new Error("Failed to fetch health metrics")
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()
+      
+      if (!data || Object.keys(data).length === 0) {
+        throw new Error("Empty data received")
+      }
+      
+      console.log("Successfully loaded health metrics:", data)
       setHealthMetrics(data)
+      return true
     } catch (error) {
-      console.error("Error fetching health metrics:", error)
+      console.error(`Error fetching health metrics (attempt ${retryCount + 1}):`, error)
+      setFetchError(`Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      
+      // Implement exponential backoff for retries
+      const maxRetries = 5
+      if (retryCount < maxRetries) {
+        const nextDelay = delay * 1.5 // Exponential backoff
+        console.log(`Retrying in ${nextDelay}ms...`)
+        
+        setTimeout(() => {
+          fetchHealthMetricsWithRetry(retryCount + 1, nextDelay)
+        }, nextDelay)
+      }
+      return false
     } finally {
       setLoading(false)
     }
