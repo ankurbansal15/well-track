@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import Exercise from "@/models/Exercise";
+import ExerciseLog from "@/models/ExerciseLog";
 import dbConnect from "@/lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import mongoose from "mongoose";
 import { authOptions } from '@/lib/auth';
+
 export async function POST(request: NextRequest) {
     try {
         await dbConnect();
@@ -38,8 +39,8 @@ export async function POST(request: NextRequest) {
             );
         }
         
-        // Create a new exercise record
-        const exercise = await Exercise.create({
+        // Create a new exercise log record
+        const exerciseLog = await ExerciseLog.create({
             userId: new mongoose.Types.ObjectId(userId),
             name,
             category: category || "other",
@@ -53,16 +54,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             exercise: {
-                id: exercise._id,
-                name: exercise.name,
-                caloriesBurned: exercise.caloriesBurned,
-                date: exercise.date
+                id: exerciseLog._id,
+                name: exerciseLog.name,
+                caloriesBurned: exerciseLog.caloriesBurned,
+                date: exerciseLog.date
             }
         });
     } catch (error) {
-        console.error("Error saving exercise:", error);
+        console.error("Error saving exercise log:", error);
         return NextResponse.json(
-            { error: "Failed to save exercise data" },
+            { error: "Failed to save exercise log data" },
             { status: 500 }
         );
     }
@@ -85,28 +86,28 @@ export async function GET(request: NextRequest) {
         // Get user ID from session
         const userId = session.user.id;
         
-        // Get exercises for this user
-        const exercises = await Exercise.find({ userId: userId })
+        // Get exercise logs for this user
+        const exerciseLogs = await ExerciseLog.find({ userId: userId })
             .sort({ date: -1 })
             .limit(10);
         
         return NextResponse.json({
             success: true,
-            logs: exercises.map(ex => ({
-                _id: ex._id,
-                name: ex.name,
-                category: ex.category,
-                sets: ex.sets,
-                reps: ex.reps,
-                caloriesBurned: ex.caloriesBurned,
-                date: ex.date,
-                imageUrl: ex.imageUrl
+            logs: exerciseLogs.map(log => ({
+                _id: log._id,
+                name: log.name,
+                category: log.category,
+                sets: log.sets,
+                reps: log.reps,
+                caloriesBurned: log.caloriesBurned,
+                date: log.date,
+                imageUrl: log.imageUrl
             }))
         });
     } catch (error) {
-        console.error("Error fetching exercises:", error);
+        console.error("Error fetching exercise logs:", error);
         return NextResponse.json(
-            { error: "Failed to fetch exercise data" },
+            { error: "Failed to fetch exercise log data" },
             { status: 500 }
         );
     }

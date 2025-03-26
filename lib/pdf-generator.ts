@@ -199,6 +199,14 @@ export async function generatePdfReport(reportData: any): Promise<Buffer> {
   });
 }
 
+/**
+ * Generates a PDF report from a HealthReport document
+ * This is the function used by the API endpoint
+ */
+export async function generateReportPDF(report: any): Promise<Buffer> {
+  return generatePdfReport(report);
+}
+
 // Keep this function for generating descriptions
 export async function generateReportDescription(reportData: any): Promise<string> {
   const prompt = `

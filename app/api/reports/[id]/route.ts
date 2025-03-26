@@ -23,10 +23,18 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid report ID format' }, { status: 400 });
     }
     
+    // Get user ID from session (could be in id or sub property)
+    const userId = session.user.id || (session.user as any).sub;
+    
+    if (!userId) {
+      console.error('No user ID found in session:', session);
+      return NextResponse.json({ error: 'User ID not found in session' }, { status: 401 });
+    }
+    
     // Find the report
     const report = await HealthReport.findOne({
       _id: params.id,
-      userId: session.user.id
+      userId: userId
     });
     
     if (!report) {

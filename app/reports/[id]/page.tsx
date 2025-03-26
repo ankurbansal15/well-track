@@ -32,17 +32,25 @@ export default function ReportDetail({ params }: { params: { id: string } }) {
       setError(null);
       
       try {
-        const response = await fetch(`/api/reports/${params.id}`);
+        const response = await fetch(`/api/reports/${params.id}`, {
+          credentials: 'include', // Include cookies for authentication
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
         
         if (!response.ok) {
-          throw new Error('Failed to fetch report details');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API Error Response:', response.status, errorData);
+          throw new Error(errorData.error || `Failed to fetch report details (Status: ${response.status})`);
         }
         
         const data = await response.json();
+        console.log('Report data received:', data);
         setReport(data);
       } catch (err) {
         console.error('Error fetching report details:', err);
-        setError('Unable to load the report details. Please try again later.');
+        setError(err instanceof Error ? err.message : 'Unable to load the report details. Please try again later.');
       } finally {
         setLoading(false);
       }

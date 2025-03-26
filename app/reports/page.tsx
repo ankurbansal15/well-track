@@ -629,7 +629,7 @@ export default function ReportsPage() {
                           <div
                             className="h-full bg-white"
                             style={{
-                              width: `${Math.min(100, (parseInt(data.amount) / parseInt(data.target)) * 100)}%`,
+                              width: `${Math.min(100, ((Number(data.amount) || 0) / (Number(data.target) || 1)) * 100)}%`,
                             }}
                           />
                         </div>
