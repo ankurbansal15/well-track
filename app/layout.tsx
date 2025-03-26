@@ -32,11 +32,11 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
+      <body className={cn("min-h-screen w-full bg-background font-sans antialiased", fontSans.variable)}>
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {isPublicRoute ? (
-              <main className="w-full">{children}</main>
+              <main className="min-h-screen w-full max-w-full">{children}</main>
             ) : (
               <SidebarProvider defaultOpen={true}>
                 <div className="flex w-full h-screen overflow-hidden">

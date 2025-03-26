@@ -14,11 +14,11 @@ import {
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col px-12">
       <SiteHeader />
 
       {/* Hero Section */}
-      <section className="container flex flex-col lg:flex-row items-center gap-8 pt-12 pb-16 lg:py-12 px-12">
+      <section className="flex flex-col lg:flex-row items-center gap-8 pt-12 pb-16 lg:py-12">
         <div className="flex flex-col gap-4 lg:w-1/2 text-center lg:text-left">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
             Your Digital Health Card <br className="hidden lg:inline" />
@@ -50,7 +50,7 @@ export default function LandingPage() {
       </section>
 
       {/* Trust Indicators */}
-      <section className="container py-16 lg:py-24 border-t px-12">
+      <section className="py-16 lg:py-24 border-t">
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4">Why Choose Our Platform?</h2>
         <p className="text-base sm:text-lg text-center text-muted-foreground mb-10 lg:mb-16">
           Empowering you with cutting-edge health technology
@@ -103,7 +103,7 @@ export default function LandingPage() {
       </section>
 
       {/* Key Features Section */}
-      <section className="container py-16 lg:py-24 px-12">
+      <section className="py-16 lg:py-24">
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4">Key Features of Our Platform</h2>
         <p className="text-base sm:text-lg text-center text-muted-foreground mb-10 lg:mb-16 max-w-[800px] mx-auto">
           Discover how our digital health card revolutionizes personal health management
@@ -155,7 +155,7 @@ export default function LandingPage() {
       </section>
 
       {/* AI Recommendation Section */}
-      <section className="container py-16 lg:py-24 border-t px-12">
+      <section className="py-16 lg:py-24 border-t">
         <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
           <div className="lg:w-1/2">
             <Image
@@ -195,7 +195,7 @@ export default function LandingPage() {
       </section>
 
       {/* Call to Action */}
-      <section className="container py-16 lg:py-24 text-center px-12">
+      <section className="py-16 lg:py-24 text-center">
         <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-5">Ready to Take Control of Your Health?</h2>
         <p className="text-base sm:text-lg text-muted-foreground mb-10 max-w-[600px] mx-auto">
           Join thousands of users who are already benefiting from our AI-powered health management platform.
