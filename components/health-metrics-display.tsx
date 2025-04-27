@@ -210,15 +210,22 @@ function VitalCard({ title, value, icon, description }: VitalCardProps) {
 
 interface ListCardProps {
   title: string;
-  items: string[];
+  items: string | string[] | undefined;
   icon: React.ReactNode;
   emptyMessage: string;
   fullWidth?: boolean;
 }
 
 function ListCard({ title, items, icon, emptyMessage, fullWidth }: ListCardProps) {
-  // Ensure items is an array, if not return an empty array
-  const safeItems = Array.isArray(items) ? items : [];
+  // Process items - handle both string and array formats
+  let safeItems: string[] = [];
+  
+  if (Array.isArray(items)) {
+    safeItems = items;
+  } else if (typeof items === 'string' && items?.trim()) {
+    // If it's a non-empty string, treat it as a single item
+    safeItems = [items];
+  }
   
   return (
     <Card className={fullWidth ? "col-span-full" : ""}>
@@ -243,4 +250,4 @@ function ListCard({ title, items, icon, emptyMessage, fullWidth }: ListCardProps
       </CardContent>
     </Card>
   );
-} 
+}

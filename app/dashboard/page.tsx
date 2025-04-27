@@ -130,6 +130,8 @@ export default function DashboardPage() {
 
   const fetchHistoryData = async () => {
     try {
+      console.log("Fetching health history data...")
+      setLoading(true)
       const response = await fetch("/api/health/history")
       
       if (!response.ok) {
@@ -137,9 +139,13 @@ export default function DashboardPage() {
       }
       
       const data = await response.json()
+      console.log("Successfully fetched history data:", data)
       setHistoryData(data)
     } catch (error) {
       console.error("Error fetching health history:", error)
+      setFetchError(`Failed to load history data: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setLoading(false)
     }
   }
 
