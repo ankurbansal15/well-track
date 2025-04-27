@@ -257,15 +257,20 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's your health overview.</p>
         </div>
-        <Button onClick={() => router.push("/health-form")}>Update Health Data</Button>
+        <div>
+        <Button className="mr-2" onClick={() => router.push("/dashboard/history")}>History</Button>
+        <Button onClick={() => router.push("/initial-health-form")}>Update Health Data</Button>
+        </div>
+        
       </div>
 
+      
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-4 h-14 mb-6">
+        <TabsList className="grid grid-cols-3 h-14 mb-6">
           <TabsTrigger value="overview" className="text-base">Overview</TabsTrigger>
           <TabsTrigger value="details" className="text-base">Health Details</TabsTrigger>
           <TabsTrigger value="insights" className="text-base">AI Insights</TabsTrigger>
-          <TabsTrigger value="tracking" className="text-base">Tracking</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
@@ -484,130 +489,6 @@ export default function DashboardPage() {
           )}
         </TabsContent>
         
-        {/* Tracking Tab - Enhanced */}
-        <TabsContent value="tracking" className="space-y-6">
-          <div className="bg-slate-50 p-6 rounded-lg mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium">Health Tracking</h3>
-              <div className="flex space-x-2">
-                <Link href="/tracking">
-                  <Button variant="outline" size="sm">
-                    <CalendarClock className="h-4 w-4 mr-1" /> View Tracking History
-                  </Button>
-                </Link>
-                <Link href="/tracking/new">
-                  <Button variant="default" size="sm">
-                    <Plus className="h-4 w-4 mr-1" /> Record New Data
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <p className="text-muted-foreground">Track your health metrics over time to monitor progress and identify trends.</p>
-          </div>
-          
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Measurements</CardTitle>
-                <CardDescription>Your latest health tracking entries</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {healthMetrics?.hasHistoricalData ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center pb-2 border-b">
-                      <span className="font-medium">Metric</span>
-                      <span className="font-medium">Value</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Weight</span>
-                      <span>{healthMetrics.weight} kg</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Blood Pressure</span>
-                      <span>{healthMetrics.bloodPressure || "--"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Heart Rate</span>
-                      <span>{healthMetrics.heartRate || "--"} bpm</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Sleep Duration</span>
-                      <span>{healthMetrics.sleepDuration || "--"} hrs</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <p className="text-muted-foreground mb-4">No historical data available yet</p>
-                    <Link href="/tracking/new">
-                      <Button>Record Your First Entry</Button>
-                    </Link>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="border-t pt-4">
-                <div className="w-full flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">
-                    {healthMetrics?.historyCount 
-                      ? `${healthMetrics.historyCount} total records` 
-                      : "Start tracking today"}
-                  </span>
-                  <Link href="/dashboard/history">
-                    <Button variant="ghost" size="sm">View All History</Button>
-                  </Link>
-                </div>
-              </CardFooter>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Tracking Reminders</CardTitle>
-                <CardDescription>Stay consistent with your health tracking</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
-                    <div className="flex items-center">
-                      <div className="bg-blue-100 p-2 rounded-full mr-3">
-                        <Scale className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Daily Weight</p>
-                        <p className="text-xs text-muted-foreground">Every morning</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">Set Reminder</Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
-                    <div className="flex items-center">
-                      <div className="bg-red-100 p-2 rounded-full mr-3">
-                        <Heart className="h-4 w-4 text-red-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Blood Pressure</p>
-                        <p className="text-xs text-muted-foreground">Every 3 days</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">Set Reminder</Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md">
-                    <div className="flex items-center">
-                      <div className="bg-green-100 p-2 rounded-full mr-3">
-                        <Salad className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Meal Tracking</p>
-                        <p className="text-xs text-muted-foreground">After each meal</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">Set Reminder</Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
       </Tabs>
 
     </div>

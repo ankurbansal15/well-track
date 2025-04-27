@@ -39,7 +39,7 @@ export default function RootLayout({
               <main className="min-h-screen w-full max-w-full">{children}</main>
             ) : (
               <SidebarProvider defaultOpen={true}>
-                <div className="flex w-full h-screen overflow-hidden">
+                <div className="flex w-full h-screen">
                   {/* Desktop Sidebar - hidden on mobile */}
                   <div className="hidden md:block">
                     <AppSidebar />
