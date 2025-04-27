@@ -271,18 +271,14 @@ export default function HealthCardPage() {
                 <dt className="font-medium">Weight:</dt>
                 <dd>{healthCardData.vitalSigns.weight || "Not recorded"} kg</dd>
               </div>
-              {healthCardData.vitalSigns.temperature && (
-                <div className="grid grid-cols-2">
-                  <dt className="font-medium">Temperature:</dt>
-                  <dd>{healthCardData.vitalSigns.temperature} °C</dd>
-                </div>
-              )}
-              {healthCardData.vitalSigns.respiratoryRate && (
-                <div className="grid grid-cols-2">
-                  <dt className="font-medium">Respiratory Rate:</dt>
-                  <dd>{healthCardData.vitalSigns.respiratoryRate} breaths/min</dd>
-                </div>
-              )}
+              <div className="grid grid-cols-2">
+                <dt className="font-medium">Temperature:</dt>
+                <dd>{healthCardData.vitalSigns.temperature || "Not recorded"} °C</dd>
+              </div>
+              <div className="grid grid-cols-2">
+                <dt className="font-medium">Respiratory Rate:</dt>
+                <dd>{healthCardData.vitalSigns.respiratoryRate || "Not recorded"} breaths/min</dd>
+              </div>
             </dl>
           </CardContent>
         </Card>

@@ -25,7 +25,7 @@ export interface IHealthMetrics extends mongoose.Document {
   medications?: string;
   familyHistory?: string;
   surgeries?: string;
-  fitnessGoals?: string;
+  fitnessGoals?: string[] | string; // Updated to support array of strings
   recordedAt: Date;
   history: mongoose.Types.ObjectId[]; // Reference to historical metrics
 }
@@ -56,7 +56,7 @@ const HealthMetricsSchema = new mongoose.Schema<IHealthMetrics>(
     medications: { type: String },
     familyHistory: { type: String },
     surgeries: { type: String },
-    fitnessGoals: { type: String },
+    fitnessGoals: { type: [String], default: [] },
     recordedAt: { type: Date, default: Date.now },
     history: [{ type: mongoose.Schema.Types.ObjectId, ref: 'HealthMetricsHistory' }]
   },

@@ -9,7 +9,7 @@ const HealthReportSchema = new mongoose.Schema({
   },
   title: {
     type: String,
-    required: true
+    default: "Health Report" // Added default value since it's required but not provided
   },
   summary: {
     type: String,
@@ -28,29 +28,49 @@ const HealthReportSchema = new mongoose.Schema({
   riskLevel: {
     type: String
   },
+  healthMetrics: {
+    height: Number,
+    weight: Number,
+    age: Number,
+    gender: String
+  },
   predictions: [{
     title: String,
     prediction: String,
     recommendation: String,
     timeframe: String
   }],
-  vitalsTrends: {
-    bloodPressure: mongoose.Schema.Types.Mixed,
-    heartRate: mongoose.Schema.Types.Mixed,
-    temperature: mongoose.Schema.Types.Mixed,
-    respiratoryRate: mongoose.Schema.Types.Mixed
-  },
-  activityTrends: {
-    steps: mongoose.Schema.Types.Mixed,
-    distance: mongoose.Schema.Types.Mixed,
-    activeMinutes: mongoose.Schema.Types.Mixed,
-    caloriesBurned: mongoose.Schema.Types.Mixed
+  // Renamed from vitalsTrends to vitalSigns to match code
+  vitalSigns: [{
+    title: String,
+    current: String,
+    trend: String,
+    lastMeasured: String,
+    chartData: mongoose.Schema.Types.Mixed
+  }],
+  // Added activityData to match code
+  activityData: mongoose.Schema.Types.Mixed,
+  // Added nutritionData to match code
+  nutritionData: mongoose.Schema.Types.Mixed,
+  // Added nutritionAdvice to match code
+  nutritionAdvice: {
+    summary: String,
+    recommendations: [String]
   },
   nutritionTrends: {
-    calories: mongoose.Schema.Types.Mixed,
-    protein: mongoose.Schema.Types.Mixed,
-    carbs: mongoose.Schema.Types.Mixed,
-    fats: mongoose.Schema.Types.Mixed
+    labels: [String],
+    calories: [Number],
+    protein: [Number],
+    carbs: [Number],
+    fats: [Number]
+  },
+  // Added aiGenerated field
+  aiGenerated: {
+    vitalSigns: Boolean,
+    nutritionAdvice: Boolean,
+    predictions: Boolean,
+    activityData: Boolean,
+    nutritionTrends: Boolean
   },
   generatedAt: {
     type: Date,

@@ -15,6 +15,7 @@ import { HealthInsights } from "@/components/insights/health-insights"
 import { FireIcon } from "@heroicons/react/24/solid"
 import { format } from "date-fns"
 import { Loader } from "@/components/loader"
+import ReactMarkdown from "react-markdown"
 
 interface HealthMetrics {
   id: string
@@ -59,7 +60,15 @@ export default function DashboardPage() {
   const [historyData, setHistoryData] = useState<any[]>([])
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [lastFetchTime, setLastFetchTime] = useState(0)
+  const [summaryInsights, setSummaryInsights] = useState<any>(null)
+  const [recommendations, setRecommendations] = useState<any>(null)
+  const [insightsLoading, setInsightsLoading] = useState(false)
 
+  // Function to switch to insights tab
+  const switchToInsightsTab = () => {
+    setActiveTab("insights")
+  }
+  
   // Robust data fetching with exponential backoff
   const fetchHealthMetricsWithRetry = async (retryCount = 0, delay = 1000) => {
     // Avoid refetching if we just fetched recently (within 2 seconds)
@@ -139,6 +148,7 @@ export default function DashboardPage() {
     if (status === "authenticated") {
       fetchHealthMetricsWithRetry()
       fetchHistoryData()
+      fetchInsightsData() // Fetch AI insights and recommendations
       // Setup an interval to check if data is loaded
       // This helps in cases where the initial load fails
       const checkInterval = setInterval(() => {
@@ -159,6 +169,30 @@ export default function DashboardPage() {
     }
     // Don't do anything while status is "loading"
   }, [status, router])
+
+  // Function to fetch AI insights and recommendations
+  const fetchInsightsData = async () => {
+    setInsightsLoading(true)
+    try {
+      // Fetch summary insights
+      const summaryResponse = await fetch('/api/health/insights?type=summary')
+      if (summaryResponse.ok) {
+        const summaryData = await summaryResponse.json()
+        setSummaryInsights(summaryData)
+      }
+      
+      // Fetch recommendations (using lifestyle endpoint)
+      const recommendationsResponse = await fetch('/api/health/insights?type=lifestyle')
+      if (recommendationsResponse.ok) {
+        const recommendationsData = await recommendationsResponse.json()
+        setRecommendations(recommendationsData)
+      }
+    } catch (error) {
+      console.error("Error fetching insights data:", error)
+    } finally {
+      setInsightsLoading(false)
+    }
+  }
 
   // Add a manual refresh option for users
   const handleManualRefresh = () => {
@@ -220,7 +254,7 @@ export default function DashboardPage() {
         <Button onClick={() => router.push("/health-form")}>Update Health Data</Button>
       </div>
 
-        <Tabs defaultValue={activeTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid grid-cols-4 h-14 mb-6">
           <TabsTrigger value="overview" className="text-base">Overview</TabsTrigger>
           <TabsTrigger value="details" className="text-base">Health Details</TabsTrigger>
@@ -283,33 +317,55 @@ export default function DashboardPage() {
                 <CardDescription>Overall health assessment based on your data</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-4">
+                {insightsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : summaryInsights ? (
+                  <div className="space-y-4">
+                    {summaryInsights.insight ? (
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown>
+                          {summaryInsights.insight.length > 300 
+                            ? `${summaryInsights.insight.slice(0, 300)}...` 
+                            : summaryInsights.insight
+                          }
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="flex items-start">
+                        <div className="bg-green-100 p-2 rounded-full mr-3">
+                          <Zap className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">No insights available yet</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            We need more data to generate personalized insights.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
                   <div className="flex items-start">
                     <div className="bg-green-100 p-2 rounded-full mr-3">
                       <Zap className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="font-medium">Your metrics are within healthy ranges</p>
+                      <p className="font-medium">Unable to load insights</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Continue maintaining your current lifestyle habits for optimal health.
+                        Please try again later.
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                      <Activity className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Steady progress in physical activity</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        You've maintained consistent activity levels over the past month.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <Link href="#insights">
-                  <Button className="w-full mt-6" variant="outline">View Detailed AI Insights</Button>
-                </Link>
+                )}
+                <Button 
+                  className="w-full mt-6" 
+                  variant="outline" 
+                  onClick={switchToInsightsTab}
+                >
+                  View Detailed AI Insights
+                </Button>
               </CardContent>
             </Card>
             
@@ -323,35 +379,68 @@ export default function DashboardPage() {
                 <CardDescription>Based on your recent health data</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <div className="min-w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center mr-3">
-                      <Droplets className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <p>Increase water intake by 500ml daily</p>
+                {insightsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                  <div className="flex items-center">
-                    <div className="min-w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mr-3">
-                      <Activity className="h-4 w-4 text-purple-600" />
-                    </div>
-                    <p>Add 15 minutes of stretching to your morning routine</p>
+                ) : recommendations ? (
+                  <div className="space-y-4">
+                    {recommendations.insight ? (
+                      recommendations.insight.split('\n')
+                        .filter((line: string) => line.trim().length > 0)
+                        .slice(0, 4)
+                        .map((recommendation: string, index: number) => {
+                          // Extract only the recommendation text without numbering
+                          const cleanRec = recommendation.replace(/^\d+\.\s*/, '').trim();
+                          
+                          // Define icons for different types of recommendations
+                          const icons = [
+                            { icon: <Droplets className="h-4 w-4 text-amber-600" />, bg: "bg-amber-100" },
+                            { icon: <Activity className="h-4 w-4 text-purple-600" />, bg: "bg-purple-100" },
+                            { icon: <Moon className="h-4 w-4 text-green-600" />, bg: "bg-green-100" },
+                            { icon: <Heart className="h-4 w-4 text-blue-600" />, bg: "bg-blue-100" }
+                          ];
+                          
+                          // Get icon based on index (cycle through available icons)
+                          const iconData = icons[index % icons.length];
+                          
+                          return (
+                            <div key={index} className="flex items-start">
+                              <div className={`min-w-6 h-6 rounded-full ${iconData.bg} flex items-center justify-center mr-3 mt-0.5`}>
+                                {iconData.icon}
+                              </div>
+                              <div className="prose prose-sm max-w-none">
+                                <ReactMarkdown>{cleanRec}</ReactMarkdown>
+                              </div>
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <div className="flex items-center">
+                        <div className="min-w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                          <Activity className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <p>No recommendations available yet</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center">
-                    <div className="min-w-6 h-6 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                      <Moon className="h-4 w-4 text-green-600" />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <div className="min-w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center mr-3">
+                        <Activity className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <p>Unable to load recommendations</p>
                     </div>
-                    <p>Your sleep pattern is consistent, keep it up!</p>
                   </div>
-                  <div className="flex items-center">
-                    <div className="min-w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                      <Heart className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <p>Try meditation to help manage stress levels</p>
-                  </div>
-                </div>
-                <Link href="#insights">
-                  <Button className="w-full mt-6" variant="outline">View All AI Recommendations</Button>
-                </Link>
+                )}
+                <Button 
+                  className="w-full mt-6" 
+                  variant="outline" 
+                  onClick={switchToInsightsTab}
+                >
+                  View All AI Recommendations
+                </Button>
               </CardContent>
             </Card>
           </div>        

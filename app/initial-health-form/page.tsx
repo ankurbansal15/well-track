@@ -52,6 +52,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Progress } from "@/components/ui/progress"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Define the form schema with Zod
 const healthFormSchema = z.object({
@@ -64,6 +65,8 @@ const healthFormSchema = z.object({
   dietType: z.string(),
   bloodPressure: z.string().optional(),
   heartRate: z.string().optional(),
+  temperature: z.string().optional(),
+  respiratoryRate: z.string().optional(),
   sleepDuration: z.string().optional(),
   stressLevel: z.number().min(1).max(10).default(5),
   allergies: z.string().optional(),
@@ -71,7 +74,7 @@ const healthFormSchema = z.object({
   chronicConditions: z.string().optional(),
   familyHistory: z.string().optional(),
   surgeries: z.string().optional(),
-  fitnessGoals: z.string().optional(),
+  fitnessGoals: z.array(z.string()).default([]),
   alcoholConsumption: z.string(),
   exercisePreference: z.string(),
 })
@@ -139,6 +142,8 @@ export default function InitialHealthFormPage() {
       dietType: "omnivore",
       bloodPressure: "",
       heartRate: "",
+      temperature: "",
+      respiratoryRate: "",
       sleepDuration: "",
       stressLevel: 5,
       allergies: "",
@@ -146,7 +151,7 @@ export default function InitialHealthFormPage() {
       chronicConditions: "",
       familyHistory: "",
       surgeries: "",
-      fitnessGoals: "",
+      fitnessGoals: [],
       alcoholConsumption: "none",
       exercisePreference: "cardio",
     },
@@ -1140,6 +1145,50 @@ export default function InitialHealthFormPage() {
                                     <FormControl>
                                       <Input type="number" placeholder="70" {...field} />
                                     </FormControl>
+                                    <FormDescription>
+                                      Beats per minute (BPM)
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <FormField
+                                control={form.control}
+                                name="temperature"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-base flex items-center gap-2">
+                                      <Thermometer className="h-4 w-4 text-muted-foreground" />
+                                      Body Temperature
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input type="number" step="0.1" placeholder="36.8" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Degrees Celsius (°C)
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={form.control}
+                                name="respiratoryRate"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-base flex items-center gap-2">
+                                      <Droplets className="h-4 w-4 text-muted-foreground" />
+                                      Respiratory Rate
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input type="number" placeholder="16" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                      Breaths per minute
+                                    </FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -1355,7 +1404,7 @@ export default function InitialHealthFormPage() {
                                       className="h-auto py-3 px-4 justify-start hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
                                       onClick={() => {
                                         const current = form.getValues("fitnessGoals") || "";
-                                        form.setValue("fitnessGoals", current + (current ? "\n\n" : "") + goal.text);
+                                        form.setValue("fitnessGoals", [...(current || []), goal.text]);
                                         toast({
                                           title: "Goal Added",
                                           description: `"${goal.title}" has been added to your goals.`,
@@ -1396,16 +1445,94 @@ export default function InitialHealthFormPage() {
                                   <Dumbbell className="h-4 w-4 text-primary" />
                                   Your Health & Fitness Goals
                                 </FormLabel>
-                                <FormControl>
-                                  <Textarea
-                                    placeholder="Describe what you'd like to achieve with your health and fitness. Be as specific as possible."
-                                    className="min-h-[180px] resize-none transition-all focus:ring-2 focus:ring-primary/20"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormDescription>
-                                  Include both short-term and long-term goals
+                                <FormDescription className="mb-4">
+                                  Select all goals that apply to you. These will help us personalize your experience.
                                 </FormDescription>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {[
+                                    {
+                                      value: "weight-loss",
+                                      label: "Weight Loss",
+                                      description: "Reduce body fat and improve body composition",
+                                      icon: <Weight className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "muscle-gain",
+                                      label: "Muscle Gain", 
+                                      description: "Build strength and increase muscle mass",
+                                      icon: <Dumbbell className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "endurance",
+                                      label: "Improve Endurance",
+                                      description: "Enhance cardiovascular fitness and stamina",
+                                      icon: <Activity className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "flexibility",
+                                      label: "Increase Flexibility",
+                                      description: "Improve mobility and range of motion",
+                                      icon: <Zap className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "stress-reduction",
+                                      label: "Stress Reduction",
+                                      description: "Better stress management and mental wellbeing",
+                                      icon: <Brain className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "sleep-improvement",
+                                      label: "Sleep Improvement",
+                                      description: "Better sleep quality and duration",
+                                      icon: <Moon className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "nutrition",
+                                      label: "Better Nutrition",
+                                      description: "Improve eating habits and diet quality",
+                                      icon: <Apple className="h-4 w-4" />
+                                    },
+                                    {
+                                      value: "chronic-condition",
+                                      label: "Manage Chronic Condition",
+                                      description: "Better management of ongoing health issues",
+                                      icon: <Heart className="h-4 w-4" />
+                                    }
+                                  ].map((goal) => {
+                                    return (
+                                      <div className="flex items-start space-x-2" key={goal.value}>
+                                        <Checkbox
+                                          id={`goal-${goal.value}`}
+                                          checked={field.value?.includes(goal.value)}
+                                          onCheckedChange={(checked) => {
+                                            const currentValues = field.value || [];
+                                            if (checked) {
+                                              field.onChange([...currentValues, goal.value]);
+                                            } else {
+                                              field.onChange(
+                                                currentValues.filter((value) => value !== goal.value)
+                                              );
+                                            }
+                                          }}
+                                        />
+                                        <div className="grid gap-1.5 leading-none">
+                                          <label
+                                            htmlFor={`goal-${goal.value}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
+                                          >
+                                            <div className="bg-primary/10 p-1.5 rounded-full text-primary">
+                                              {goal.icon}
+                                            </div>
+                                            {goal.label}
+                                          </label>
+                                          <p className="text-xs text-muted-foreground">
+                                            {goal.description}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                                 <FormMessage />
                               </FormItem>
                             )}
