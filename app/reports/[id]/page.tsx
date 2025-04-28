@@ -279,10 +279,10 @@ export default function ReportDetail({ params }: { params: { id: string } }) {
                     },
                     {
                       name: "Target",
-                      calories: 2200,
-                      protein: 90,
-                      carbs: 250,
-                      fats: 70,
+                      calories: report.targets?.calories || 0,
+                      protein: report.targets?.protein || 0,
+                      carbs: report.targets?.carbs || 0,
+                      fats: report.targets?.fats || 0,
                     }
                   ]}
                   layout="vertical"
@@ -314,9 +314,9 @@ export default function ReportDetail({ params }: { params: { id: string } }) {
                     },
                     {
                       name: "Target",
-                      steps: 10000,
-                      activeMinutes: 60,
-                      caloriesBurned: 500,
+                      steps: report.activityTargets?.steps || 0,
+                      activeMinutes: report.activityTargets?.activeMinutes || 0,
+                      caloriesBurned: report.activityTargets?.caloriesBurned || 0,
                     }
                   ]}
                   layout="vertical"

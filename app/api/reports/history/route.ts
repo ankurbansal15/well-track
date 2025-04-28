@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/auth';
 import dbConnect from "@/lib/mongodb";
-import Report from "@/models/Report";
+import HealthReport from "@/models/HealthReport";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     
     // Get report history for the user
-    const reports = await Report.find({ 
+    const reports = await HealthReport.find({ 
       userId: session.user.id 
     })
-    .select('_id title generatedAt healthScore bmi riskLevel')
+    .select('_id title summary generatedAt healthScore bmi riskLevel')
     .sort({ generatedAt: -1 })
     .limit(limit);
     

@@ -25,6 +25,24 @@ const nextConfig = {
   sassOptions: {
     includePaths: ['./styles'],
   },
+  // Configure webpack to handle Node.js modules properly in the browser
+  webpack: (config, { isServer }) => {
+    // If it's a client-side bundle, provide empty module for Node.js modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        stream: false,
+        crypto: false,
+        os: false,
+        path: false,
+        http: false,
+        https: false,
+        zlib: false,
+      };
+    }
+    return config;
+  },
 }
 
 mergeConfig(nextConfig, userConfig)
