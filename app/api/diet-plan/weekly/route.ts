@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/auth';
 import dbConnect from "@/lib/mongodb";
 import DietPlan from "@/models/DietPlan";
-import { generateTextToText, generateTextToImage } from "@/lib/generative-ai";
+import { generateTextToTextServer, generateTextToImageServer } from "@/lib/server-generative-ai";
 import { startOfWeek, addDays, format } from "date-fns";
 
 // Update the GET function to improve handling of the weekly plan retrieval and regeneration
@@ -129,7 +129,7 @@ async function generateWeeklyPlan(userId: string, basePlan: any) {
   `;
 
   // Get AI response
-  const aiResponse = await generateTextToText(prompt);
+  const aiResponse = await generateTextToTextServer(prompt);
   let weeklyPlanData;
   
   try {
@@ -151,7 +151,7 @@ async function generateWeeklyPlan(userId: string, basePlan: any) {
           const firstFood = meal.foods[0];
           try {
             const imagePrompt = `High-quality professional food photography of ${firstFood.name}, ${firstFood.portion}, on a clean plate with soft lighting, top-down view, healthy food, appetizing`;
-            const imageUrl = await generateTextToImage(imagePrompt, firstFood.name);
+            const imageUrl = await generateTextToImageServer(imagePrompt, firstFood.name);
             firstFood.imageUrl = imageUrl;
           } catch (imageError) {
             console.error(`Error generating image for ${firstFood.name}:`, imageError);

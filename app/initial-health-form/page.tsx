@@ -201,12 +201,8 @@ export default function InitialHealthFormPage() {
         heartRate: data.heartRate?.toString() || "",
         sleepDuration: data.sleepDuration?.toString() || "",
         stressLevel: typeof data.stressLevel === 'number' ? data.stressLevel : 5,
-        // Convert Map of goalDeadlines to a plain object if it exists
-        goalDeadlines: data.goalDeadlines ? 
-          (typeof data.goalDeadlines === 'object' && data.goalDeadlines !== null) ? 
-            Object.fromEntries(
-              Object.entries(data.goalDeadlines).map(([k, v]) => [k, v?.toString() || ""])
-            ) : {} : {}
+        // goalDeadlines is now a plain object, just ensure it's defined
+        goalDeadlines: data.goalDeadlines || {}
       }
       
       form.reset(formattedData)
@@ -371,8 +367,14 @@ export default function InitialHealthFormPage() {
 
   // Replace the handleSubmit function with this implementation
   function handleFinalSubmit() {
-    // Always submit the form regardless of step when in editing mode
-    if (hasHistoricalData || currentStep === steps.length - 1) {
+    // Always submit the form when in edit mode
+    if (hasHistoricalData) {
+      form.handleSubmit(onSubmit)();
+      return;
+    }
+    
+    // For new entries, only submit if on the last step
+    if (currentStep === steps.length - 1) {
       form.handleSubmit(onSubmit)();
     }
   }

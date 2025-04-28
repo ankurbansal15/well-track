@@ -58,7 +58,8 @@ const HealthMetricsSchema = new mongoose.Schema<IHealthMetrics>(
     familyHistory: { type: String },
     surgeries: { type: String },
     fitnessGoals: { type: [String], default: [] },
-    goalDeadlines: { type: Map, of: String, default: {} },
+    // Change from Map to plain Object for easier handling
+    goalDeadlines: { type: Object, default: {} },
     recordedAt: { type: Date, default: Date.now },
     history: [{ type: mongoose.Schema.Types.ObjectId, ref: 'HealthMetricsHistory' }]
   },

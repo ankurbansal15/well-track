@@ -6,7 +6,11 @@ import { authOptions } from '@/lib/auth';
 import dbConnect from "@/lib/mongodb";
 import DietPlan from "@/models/DietPlan";
 import HealthMetrics from "@/models/HealthMetrics";
-import { generateTextToText, generateTextToImage } from "@/lib/generative-ai";
+import FoodEntry from "@/models/FoodEntry";
+import { 
+  generateTextToTextServer, 
+  generateTextToImageServer 
+} from "@/lib/server-generative-ai";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +22,7 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
     const body = await req.json();
+    const isAutoGenerate = body.autoGenerate === true;
     
     // Get the user's health metrics
     const healthMetrics = await HealthMetrics.findOne(
@@ -56,6 +61,59 @@ export async function POST(req: NextRequest) {
     
     const dailyCalories = maintenanceCalories + calorieAdjustment;
 
+    // If auto-generate is enabled, fetch additional user data to personalize the plan
+    let userFoodPreferences = "";
+    let dietInsights = "";
+    
+    if (isAutoGenerate) {
+      try {
+        // Get user's food history to determine preferences
+        const foodEntries = await FoodEntry.find({ userId: session.user.id })
+          .sort({ recorded_at: -1 })
+          .limit(50);
+          
+        if (foodEntries && foodEntries.length > 0) {
+          // Extract most common foods
+          const foodCounts: Record<string, number> = {};
+          foodEntries.forEach(entry => {
+            if (foodCounts[entry.food_name]) {
+              foodCounts[entry.food_name]++;
+            } else {
+              foodCounts[entry.food_name] = 1;
+            }
+          });
+          
+          // Get top 5 foods
+          const topFoods = Object.entries(foodCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(entry => entry[0]);
+            
+          if (topFoods.length > 0) {
+            userFoodPreferences = `Preferred foods based on history: ${topFoods.join(', ')}.`;
+          }
+        }
+        
+        // Calculate average macros if available
+        if (foodEntries && foodEntries.length > 0) {
+          const totalProtein = foodEntries.reduce((sum, entry) => sum + (entry.protein_g || 0), 0);
+          const totalCarbs = foodEntries.reduce((sum, entry) => sum + (entry.carbs_g || 0), 0);
+          const totalFats = foodEntries.reduce((sum, entry) => sum + (entry.fats_g || 0), 0);
+          
+          const avgProtein = Math.round(totalProtein / foodEntries.length);
+          const avgCarbs = Math.round(totalCarbs / foodEntries.length);
+          const avgFats = Math.round(totalFats / foodEntries.length);
+          
+          if (avgProtein > 0 || avgCarbs > 0 || avgFats > 0) {
+            dietInsights = `Current average macros: ${avgProtein}g protein, ${avgCarbs}g carbs, ${avgFats}g fats per meal.`;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user food preferences:", error);
+        // Continue with basic plan generation even if preferences fetch fails
+      }
+    }
+
     // Generate a personalized diet plan using AI
     const prompt = `
       Create a detailed diet plan with the following specifications:
@@ -65,6 +123,8 @@ export async function POST(req: NextRequest) {
       - Include snacks: ${body.includeSnacks ? 'Yes' : 'No'}
       - Health conditions: ${healthMetrics.chronicConditions || 'None'}
       - Allergies: ${healthMetrics.allergies || 'None'}
+      ${userFoodPreferences ? `- ${userFoodPreferences}` : ''}
+      ${dietInsights ? `- ${dietInsights}` : ''}
       
       For each meal, provide:
       1. Meal name
@@ -90,39 +150,83 @@ export async function POST(req: NextRequest) {
           }
         ]
       }
+      
+      IMPORTANT: Your response must be a valid JSON object and nothing else. No explanations before or after the JSON.
     `;
 
-    const aiResponse = await generateTextToText(prompt);
+    console.log("Sending prompt to AI service for diet plan generation");
+    
+    // Check if API key is configured
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      console.error("Google Generative AI API key is not configured");
+      return NextResponse.json(
+        { error: "AI service configuration is missing" },
+        { status: 500 }
+      );
+    }
+
+    let aiResponse;
+    try {
+      aiResponse = await generateTextToTextServer(prompt);
+      console.log("Received response from AI service");
+    } catch (aiError) {
+      console.error("Error calling AI service:", aiError);
+      return NextResponse.json(
+        { error: "Failed to generate diet plan with AI service" },
+        { status: 500 }
+      );
+    }
+    
     let dietPlanData;
     
     try {
-      // Extract valid JSON from the AI response
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-      const jsonString = jsonMatch ? jsonMatch[0] : null;
-      
-      if (!jsonString) {
-        throw new Error("No valid JSON found in AI response");
+      // Try to parse the AI response directly first
+      try {
+        dietPlanData = JSON.parse(aiResponse);
+      } catch (directParseError) {
+        // If direct parsing fails, try extracting JSON using regex
+        console.log("Direct JSON parsing failed, trying to extract JSON with regex");
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        const jsonString = jsonMatch ? jsonMatch[0] : null;
+        
+        if (!jsonString) {
+          console.error("No valid JSON found in AI response");
+          console.log("AI response:", aiResponse);
+          throw new Error("No valid JSON found in AI response");
+        }
+        
+        dietPlanData = JSON.parse(jsonString);
       }
       
-      dietPlanData = JSON.parse(jsonString);
+      // Validate that the response has the expected structure
+      if (!dietPlanData.meals || !Array.isArray(dietPlanData.meals) || dietPlanData.meals.length === 0) {
+        console.error("AI response does not contain meals array");
+        console.log("AI response:", aiResponse);
+        throw new Error("AI response has invalid format");
+      }
       
       // Generate images for food items (limit to first item in each meal to save API calls)
-      for (let meal of dietPlanData.meals) {
-        if (meal.foods && meal.foods.length > 0) {
-          const firstFood = meal.foods[0];
-          try {
-            const imagePrompt = `High-quality professional food photography of ${firstFood.name}, ${firstFood.portion}, on a clean plate with soft lighting, top-down view, healthy food, appetizing`;
-            const imageUrl = await generateTextToImage(imagePrompt, firstFood.name);
-            firstFood.imageUrl = imageUrl;
-          } catch (imageError) {
-            console.error(`Error generating image for ${firstFood.name}:`, imageError);
+      if (process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID) {
+        for (let meal of dietPlanData.meals) {
+          if (meal.foods && meal.foods.length > 0) {
+            const firstFood = meal.foods[0];
+            try {
+              const imagePrompt = `High-quality professional food photography of ${firstFood.name}, ${firstFood.portion}, on a clean plate with soft lighting, top-down view, healthy food, appetizing`;
+              const imageUrl = await generateTextToImageServer(imagePrompt, firstFood.name);
+              firstFood.imageUrl = imageUrl;
+            } catch (imageError) {
+              console.error(`Error generating image for ${firstFood.name}:`, imageError);
+              // Continue without image if image generation fails
+            }
           }
         }
+      } else {
+        console.log("Skipping image generation - API keys not configured");
       }
     } catch (parseError) {
-      console.error("Error parsing AI response:", parseError);
+      console.error("Error processing AI response:", parseError);
       return NextResponse.json(
-        { error: "Failed to generate diet plan" },
+        { error: "Failed to process AI response for diet plan" },
         { status: 500 }
       );
     }
@@ -131,7 +235,7 @@ export async function POST(req: NextRequest) {
     const dietPlan = new DietPlan({
       userId: session.user.id,
       dailyCalories,
-      goalWeight: body.goalWeight,
+      goalWeight: body.goalWeight || healthMetrics.weight, // Use either provided goal or current weight
       timeframe: body.timeframe,
       dietType: body.dietType,
       mealCount: body.mealCount,
@@ -143,16 +247,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       message: "Diet plan created successfully",
-      dietPlan: {
-        id: dietPlan._id,
-        dailyCalories: dietPlan.dailyCalories,
-        meals: dietPlan.meals
-      }
+      dietPlan: dietPlan
     });
   } catch (error) {
     console.error("Error creating diet plan:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error: " + (error instanceof Error ? error.message : "Unknown error") },
       { status: 500 }
     );
   }

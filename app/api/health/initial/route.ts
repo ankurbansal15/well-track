@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
     const existingMetrics = await HealthMetrics.findOne({ userId: session.user.id });
     const isInitialSubmission = !existingMetrics;
     
-    // Properly convert goalDeadlines from plain JS object to MongoDB Map for storage
+    // No need to convert goalDeadlines anymore - it's now a plain object in the schema
+    // Just ensure it's defined
     const formattedHealthData = {
       ...healthData,
-      // Convert plain object to Map for MongoDB storage
-      goalDeadlines: healthData.goalDeadlines ? new Map(Object.entries(healthData.goalDeadlines)) : new Map()
+      goalDeadlines: healthData.goalDeadlines || {}
     };
     
     // Save this submission to health metrics history

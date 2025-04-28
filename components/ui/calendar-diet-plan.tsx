@@ -31,9 +31,10 @@ interface CalendarDietPlanProps {
   dietPlan: any;
   weeklyData: DayPlanData[];
   className?: string;
+  onDayClick?: (dayIndex: number) => void;
 }
 
-export function CalendarDietPlan({ dietPlan, weeklyData, className }: CalendarDietPlanProps) {
+export function CalendarDietPlan({ dietPlan, weeklyData, className, onDayClick }: CalendarDietPlanProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   
   // Calculate the week range
@@ -189,7 +190,21 @@ export function CalendarDietPlan({ dietPlan, weeklyData, className }: CalendarDi
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="w-full h-7 text-xs">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full h-7 text-xs"
+                          onClick={() => {
+                            // Find the index of the day in the weekly data array
+                            const dayIndex = daysOfWeek.findIndex(d => 
+                              isSameDay(d, day)
+                            );
+                            // Call the onDayClick handler if provided
+                            if (onDayClick) {
+                              onDayClick(dayIndex);
+                            }
+                          }}
+                        >
                           <Clock className="h-3 w-3 mr-1" />
                           View Details
                         </Button>

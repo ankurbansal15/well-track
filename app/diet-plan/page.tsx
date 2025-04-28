@@ -32,6 +32,7 @@ export default function DietPlanPage() {
   const [dietType, setDietType] = useState("balanced")
   const [mealCount, setMealCount] = useState(3)
   const [includeSnacks, setIncludeSnacks] = useState(true)
+  const [autoGenerate, setAutoGenerate] = useState(false)
   
   // State for health metrics and generated plan
   const [healthMetrics, setHealthMetrics] = useState<any>(null)
@@ -113,10 +114,20 @@ export default function DietPlanPage() {
 
   // Generate a new diet plan
   const generateDietPlan = async () => {
-    if (!healthMetrics || goalWeight === '') {
+    if (!healthMetrics) {
       toast({
         title: "Missing Information",
-        description: "Please ensure all fields are filled correctly.",
+        description: "Please ensure your health data is available before creating a diet plan.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // If not auto-generating, we need to ensure goal weight is set
+    if (!autoGenerate && goalWeight === '') {
+      toast({
+        title: "Missing Information",
+        description: "Please set your goal weight before creating a diet plan.",
         variant: "destructive"
       });
       return;
@@ -124,25 +135,36 @@ export default function DietPlanPage() {
     
     setIsLoading(true);
     try {
+      console.log("Sending diet plan request with parameters:", {
+        goalWeight: autoGenerate ? healthMetrics.weight : goalWeight,
+        timeframe,
+        dietType,
+        mealCount,
+        includeSnacks,
+        autoGenerate
+      });
+      
       const response = await fetch('/api/diet-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goalWeight,
+          goalWeight: autoGenerate ? healthMetrics.weight : goalWeight,
           timeframe: parseInt(timeframe),
           dietType,
           mealCount,
-          includeSnacks
+          includeSnacks,
+          autoGenerate
         }),
         cache: 'no-store'
       });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to generate diet plan');
+        throw new Error(errorData.error || `Failed to generate diet plan: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log("Diet plan generated successfully:", data);
       setGeneratedPlan(data.dietPlan);
       setSavedPlan(data.dietPlan);
       
@@ -202,7 +224,6 @@ export default function DietPlanPage() {
               </AlertDescription>
             </Alert>
           ) : (
-            // ...existing code...
             <div className="grid gap-8 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -210,7 +231,29 @@ export default function DietPlanPage() {
                   <CardDescription>Based on your health profile</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* ...existing code... */}
+                  <div className="flex items-center justify-between space-x-2 pb-2 border-b">
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        id="auto-generate" 
+                        checked={autoGenerate} 
+                        onCheckedChange={setAutoGenerate} 
+                      />
+                      <Label htmlFor="auto-generate" className="font-medium">Auto Generate</Label>
+                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="max-w-xs">
+                            When enabled, your diet plan will be automatically generated based on your existing health metrics and food preferences.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="current-weight">Current Weight (kg)</Label>
@@ -308,7 +351,7 @@ export default function DietPlanPage() {
                 <CardFooter>
                   <Button
                     onClick={generateDietPlan}
-                    disabled={isLoading || goalWeight === ''}
+                    disabled={isLoading || (!autoGenerate && goalWeight === '')}
                     className="w-full"
                   >
                     {isLoading ? (
@@ -326,7 +369,6 @@ export default function DietPlanPage() {
               </Card>
               
               <Card>
-                {/* ...existing code... */}
                 <CardHeader>
                   <CardTitle>Health Considerations</CardTitle>
                   <CardDescription>These factors will be considered in your plan</CardDescription>
