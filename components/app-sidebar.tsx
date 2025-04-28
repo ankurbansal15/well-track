@@ -98,7 +98,6 @@ export function AppSidebar() {
     { name: "Reports", href: "/reports", icon: ChartBarSquare },
     { name: "Daily Tracking", href: "/tracking", icon: ClipboardDocumentList },
     { name: "Health Card", href: "/health-card", icon: Heart },
-    { name: "Goals", href: "/goals", icon: GoalIcon },
     { name: "Diet Plan", href: "/diet-plan", icon: Utensils },
     { name: "Exercise Plan", href: "/exercise-plan", icon: DumbbellIcon },
     { name: "Settings", href: "/settings", icon: Cog6Tooth },
