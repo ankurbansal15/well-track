@@ -22,6 +22,13 @@ export async function POST(req: NextRequest) {
     const existingMetrics = await HealthMetrics.findOne({ userId: session.user.id });
     const isInitialSubmission = !existingMetrics;
     
+    // Properly convert goalDeadlines from plain JS object to MongoDB Map for storage
+    const formattedHealthData = {
+      ...healthData,
+      // Convert plain object to Map for MongoDB storage
+      goalDeadlines: healthData.goalDeadlines ? new Map(Object.entries(healthData.goalDeadlines)) : new Map()
+    };
+    
     // Save this submission to health metrics history
     const historyEntry = await HealthMetricsHistory.create({
       userId: session.user.id,
@@ -44,7 +51,7 @@ export async function POST(req: NextRequest) {
       // Create new health metrics record for first-time submission
       healthMetrics = await HealthMetrics.create({
         userId: session.user.id,
-        ...healthData,
+        ...formattedHealthData,
         recordedAt: new Date(),
         history: [historyEntry._id]
       });
@@ -53,7 +60,7 @@ export async function POST(req: NextRequest) {
       healthMetrics = await HealthMetrics.findOneAndUpdate(
         { userId: session.user.id },
         {
-          ...healthData,
+          ...formattedHealthData,
           recordedAt: new Date(),
           $push: { history: historyEntry._id }
         },

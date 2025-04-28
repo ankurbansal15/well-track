@@ -75,6 +75,7 @@ const healthFormSchema = z.object({
   familyHistory: z.string().optional(),
   surgeries: z.string().optional(),
   fitnessGoals: z.array(z.string()).default([]),
+  goalDeadlines: z.record(z.string(), z.string()).default({}), // Map of goal to deadline
   alcoholConsumption: z.string(),
   exercisePreference: z.string(),
 })
@@ -152,6 +153,7 @@ export default function InitialHealthFormPage() {
       familyHistory: "",
       surgeries: "",
       fitnessGoals: [],
+      goalDeadlines: {},
       alcoholConsumption: "none",
       exercisePreference: "cardio",
     },
@@ -190,7 +192,24 @@ export default function InitialHealthFormPage() {
         setHasHistoricalData(true)
       }
       
-      form.reset(data)
+      // Convert numeric values to strings before setting form values to match schema
+      const formattedData = {
+        ...data,
+        height: data.height?.toString() || "",
+        weight: data.weight?.toString() || "",
+        age: data.age?.toString() || "",
+        heartRate: data.heartRate?.toString() || "",
+        sleepDuration: data.sleepDuration?.toString() || "",
+        stressLevel: typeof data.stressLevel === 'number' ? data.stressLevel : 5,
+        // Convert Map of goalDeadlines to a plain object if it exists
+        goalDeadlines: data.goalDeadlines ? 
+          (typeof data.goalDeadlines === 'object' && data.goalDeadlines !== null) ? 
+            Object.fromEntries(
+              Object.entries(data.goalDeadlines).map(([k, v]) => [k, v?.toString() || ""])
+            ) : {} : {}
+      }
+      
+      form.reset(formattedData)
     } catch (error) {
       console.error("Error fetching health metrics:", error)
     }
@@ -297,6 +316,8 @@ export default function InitialHealthFormPage() {
         age: parseInt(values.age),
         heartRate: values.heartRate ? parseInt(values.heartRate) : undefined,
         sleepDuration: values.sleepDuration ? parseFloat(values.sleepDuration) : undefined,
+        // Ensure goalDeadlines is properly formatted (it's already a plain object)
+        goalDeadlines: values.goalDeadlines || {},
       }
 
       // Add timestamp for history tracking
@@ -350,8 +371,9 @@ export default function InitialHealthFormPage() {
 
   // Replace the handleSubmit function with this implementation
   function handleFinalSubmit() {
-    if (currentStep === steps.length - 1) {
-      form.handleSubmit(onSubmit)()
+    // Always submit the form regardless of step when in editing mode
+    if (hasHistoricalData || currentStep === steps.length - 1) {
+      form.handleSubmit(onSubmit)();
     }
   }
 
@@ -1360,7 +1382,7 @@ export default function InitialHealthFormPage() {
                                   Select all goals that apply to you. These will help us personalize your experience.
                                 </FormDescription>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  {[
+                                  { [
                                     {
                                       value: "weight-loss",
                                       label: "Weight Loss",
@@ -1411,35 +1433,77 @@ export default function InitialHealthFormPage() {
                                     }
                                   ].map((goal) => {
                                     return (
-                                      <div className="flex items-start space-x-2" key={goal.value}>
-                                        <Checkbox
-                                          id={`goal-${goal.value}`}
-                                          checked={field.value?.includes(goal.value)}
-                                          onCheckedChange={(checked) => {
-                                            const currentValues = field.value || [];
-                                            if (checked) {
-                                              field.onChange([...currentValues, goal.value]);
-                                            } else {
-                                              field.onChange(
-                                                currentValues.filter((value) => value !== goal.value)
-                                              );
-                                            }
-                                          }}
-                                        />
-                                        <div className="grid gap-1.5 leading-none">
-                                          <label
-                                            htmlFor={`goal-${goal.value}`}
-                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
-                                          >
-                                            <div className="bg-primary/10 p-1.5 rounded-full text-primary">
-                                              {goal.icon}
-                                            </div>
-                                            {goal.label}
-                                          </label>
-                                          <p className="text-xs text-muted-foreground">
-                                            {goal.description}
-                                          </p>
+                                      <div className="flex flex-col space-y-3" key={goal.value}>
+                                        <div className="flex items-start space-x-2">
+                                          <Checkbox
+                                            id={`goal-${goal.value}`}
+                                            checked={field.value?.includes(goal.value)}
+                                            onCheckedChange={(checked) => {
+                                              const currentValues = field.value || [];
+                                              if (checked) {
+                                                field.onChange([...currentValues, goal.value]);
+                                              } else {
+                                                field.onChange(
+                                                  currentValues.filter((value) => value !== goal.value)
+                                                );
+                                                
+                                                // Remove deadline when goal is unchecked
+                                                const currentDeadlines = form.getValues("goalDeadlines") || {};
+                                                delete currentDeadlines[goal.value];
+                                                form.setValue("goalDeadlines", currentDeadlines);
+                                              }
+                                            }}
+                                          />
+                                          <div className="grid gap-1.5 leading-none">
+                                            <label
+                                              htmlFor={`goal-${goal.value}`}
+                                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
+                                            >
+                                              <div className="bg-primary/10 p-1.5 rounded-full text-primary">
+                                                {goal.icon}
+                                              </div>
+                                              {goal.label}
+                                            </label>
+                                            <p className="text-xs text-muted-foreground">
+                                              {goal.description}
+                                            </p>
+                                          </div>
                                         </div>
+                                        
+                                        {/* Deadline input appears when goal is selected */}
+                                        {field.value?.includes(goal.value) && (
+                                          <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="ml-6 pl-2 border-l border-primary/20"
+                                          >
+                                            <FormField
+                                              control={form.control}
+                                              name={`goalDeadlines.${goal.value}`}
+                                              render={({ field: deadlineField }) => (
+                                                <FormItem className="flex flex-col">
+                                                  <FormLabel className="text-xs flex items-center gap-1 text-muted-foreground">
+                                                    <Clock className="h-3 w-3" />
+                                                    Target Deadline
+                                                  </FormLabel>
+                                                  <FormControl>
+                                                    <Input
+                                                      type="date"
+                                                      {...deadlineField}
+                                                      className="h-8 text-sm"
+                                                      min={new Date().toISOString().split('T')[0]} // Set min to today
+                                                    />
+                                                  </FormControl>
+                                                  <FormDescription className="text-xs">
+                                                    When do you want to achieve this goal?
+                                                  </FormDescription>
+                                                </FormItem>
+                                              )}
+                                            />
+                                          </motion.div>
+                                        )}
                                       </div>
                                     )
                                   })}
