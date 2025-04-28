@@ -19,6 +19,11 @@ export async function GET(req: NextRequest) {
 
     await dbConnect();
 
+    // Get URL parameters
+    const url = new URL(req.url);
+    const regenerate = url.searchParams.get('regenerate') === 'true';
+    const cuisineType = url.searchParams.get('cuisineType') || '';
+    
     // Get the latest diet plan for the user
     const basePlan = await DietPlan.findOne(
       { userId: session.user.id, isWeeklyPlan: { $ne: true } }, // Exclude weekly plans
@@ -30,26 +35,41 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No base diet plan found" }, { status: 404 });
     }
     
-    // Check if we need to generate the weekly plan
-    const url = new URL(req.url);
-    const regenerate = url.searchParams.get('regenerate') === 'true';
-    
     // Try to find an existing weekly plan based on the latest base plan
-    let weeklyPlan = await DietPlan.findOne(
-      { 
-        userId: session.user.id,
-        isWeeklyPlan: true,
-        baseOnPlanId: basePlan._id 
-      },
-      {},
-      { sort: { createdAt: -1 } }
-    );
+    // If cuisine type is specified, try to find a plan with that cuisine type first
+    let weeklyPlan;
+    
+    if (cuisineType) {
+      weeklyPlan = await DietPlan.findOne(
+        { 
+          userId: session.user.id,
+          isWeeklyPlan: true,
+          baseOnPlanId: basePlan._id,
+          cuisineType: cuisineType
+        },
+        {},
+        { sort: { createdAt: -1 } }
+      );
+    }
+    
+    // If no cuisine-specific plan exists or none was requested, try to find any weekly plan
+    if (!weeklyPlan) {
+      weeklyPlan = await DietPlan.findOne(
+        { 
+          userId: session.user.id,
+          isWeeklyPlan: true,
+          baseOnPlanId: basePlan._id 
+        },
+        {},
+        { sort: { createdAt: -1 } }
+      );
+    }
     
     // If we need to regenerate or no weekly plan exists
     if (regenerate || !weeklyPlan) {
       try {
         // Generate a weekly plan using AI
-        weeklyPlan = await generateWeeklyPlan(session.user.id, basePlan);
+        weeklyPlan = await generateWeeklyPlan(session.user.id, basePlan, cuisineType);
       } catch (generateError) {
         console.error("Error generating weekly plan:", generateError);
         return NextResponse.json(
@@ -69,25 +89,50 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function generateWeeklyPlan(userId: string, basePlan: any) {
+async function generateWeeklyPlan(userId: string, basePlan: any, cuisineType: string = '') {
   // Create a weekly date range starting from Monday
   const startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
   
   // List of meal varieties to ensure diverse meals
-  const mealVarieties = {
+  // If cuisine type is indian, use Indian food varieties
+  const indianMealVarieties = {
+    breakfast: ["paratha", "upma", "poha", "idli", "dosa", "uttapam", "besan cheela"],
+    lunch: ["dal rice", "rajma chawal", "chole bhature", "vegetable pulao", "thali", "biryani", "kadhi"],
+    dinner: ["roti sabzi", "vegetable curry", "paneer dishes", "dal tadka", "khichdi", "palak dishes", "lentil dishes"]
+  };
+  
+  // Use Indian varieties if specified, otherwise use default varieties
+  const defaultMealVarieties = {
     breakfast: ["oatmeal", "eggs", "smoothie", "yogurt", "toast", "pancakes", "cereal"],
     lunch: ["salad", "sandwich", "soup", "wrap", "bowl", "pasta", "stir fry"],
     dinner: ["fish", "chicken", "vegetarian", "beef", "pasta", "rice dish", "roasted vegetables"]
   };
   
+  // Choose meal varieties based on cuisine type
+  const mealVarieties = (cuisineType.toLowerCase() === 'indian') ? indianMealVarieties : defaultMealVarieties;
+  
   // Generate a weekly plan based on the base diet plan
-  const prompt = `
+  let prompt = `
     Create a 7-day meal plan based on the following diet requirements:
     - Diet type: ${basePlan.dietType || 'balanced'}
     - Daily calories: ${basePlan.dailyCalories} calories
     - Number of meals per day: 3 (breakfast, lunch, dinner)
-    
+  `;
+  
+  // Add cuisine type specification if provided
+  if (cuisineType.toLowerCase() === 'indian') {
+    prompt += `
+    - Cuisine type: Indian
+    - Use authentic Indian recipes and ingredients
+    - Include traditional Indian breakfast items like paratha, poha, upma, idli, dosa
+    - Include Indian lunch options like dal, rice, sabzi, roti, curry dishes
+    - Include Indian dinner items focusing on balanced nutrition
+    - Use Indian spices and cooking methods
+    `;
+  }
+  
+  prompt += `
     For each day (Monday through Sunday), provide specific meal suggestions with:
     1. Food items with portion sizes
     2. Calories per meal
@@ -150,7 +195,13 @@ async function generateWeeklyPlan(userId: string, basePlan: any) {
         if (meal && meal.foods && meal.foods.length > 0) {
           const firstFood = meal.foods[0];
           try {
-            const imagePrompt = `High-quality professional food photography of ${firstFood.name}, ${firstFood.portion}, on a clean plate with soft lighting, top-down view, healthy food, appetizing`;
+            // Enhance image prompt for Indian foods if cuisine type is Indian
+            let imagePrompt = `High-quality professional food photography of ${firstFood.name}, ${firstFood.portion}, on a clean plate with soft lighting, top-down view, healthy food, appetizing`;
+            
+            if (cuisineType.toLowerCase() === 'indian') {
+              imagePrompt = `High-quality professional food photography of Indian ${firstFood.name}, ${firstFood.portion}, traditional authentic Indian cuisine, served on a thali or plate, with vibrant colors and garnishes, soft lighting, top-down view, appetizing`;
+            }
+            
             const imageUrl = await generateTextToImageServer(imagePrompt, firstFood.name);
             firstFood.imageUrl = imageUrl;
           } catch (imageError) {
@@ -200,7 +251,8 @@ async function generateWeeklyPlan(userId: string, basePlan: any) {
       isWeeklyPlan: true,
       baseOnPlanId: basePlan._id,
       weeklyPlanData: weeklyPlanData.weeklyPlan,
-      weekStartDate: startDate
+      weekStartDate: startDate,
+      cuisineType: cuisineType || basePlan.dietType // Store cuisine type for filtering later
     });
 
     await weeklyPlan.save();
