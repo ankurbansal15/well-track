@@ -10,6 +10,17 @@ export interface AvailableHealthData {
   recentExercises?: any[];
   recentSleep?: any[];
   report?: any;
+  sleepData?: Array<{
+    date: string;
+    duration: number;
+    quality: number;
+  }>;
+  nutritionData?: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fats_g: number;
+  };
 }
 
 export async function generateVitalSignsWithAI(healthData: AvailableHealthData) {
