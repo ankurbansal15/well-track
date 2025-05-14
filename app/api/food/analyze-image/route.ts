@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateTextAndImageToText } from '@/lib/generative-ai';
+import { generateTextAndImageToTextServer } from '@/lib/server-generative-ai';
 import { v2 as cloudinary } from 'cloudinary';
 
 // Configure Cloudinary
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     console.log("Sending food image for analysis...");
     
     // Use Google Generative AI to analyze the image
-    const analysisResult = await generateTextAndImageToText(prompt, imageUrl);
+    const analysisResult = await generateTextAndImageToTextServer(prompt, imageUrl);
     console.log("Received analysis from Gemini:", analysisResult.substring(0, 200) + "...");
     
     // Clean up the response to extract just the JSON part
