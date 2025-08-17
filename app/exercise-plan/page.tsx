@@ -21,6 +21,7 @@ import {
   Share2, 
   Printer, 
   Loader,
+  Loader2,
   Info,
   X,
   Check,
@@ -188,6 +189,7 @@ export default function ExercisePlanPage() {
               setSelectedDay(structuredPlan[0].day);
             }
           } else {
+            console.log("No home plan found, will auto-generate");
             setIsLoadingPlans(prev => ({ ...prev, home: false }));
           }
           
@@ -218,6 +220,7 @@ export default function ExercisePlanPage() {
             // Update loading state for gym
             setIsLoadingPlans(prev => ({ ...prev, gym: false }));
           } else {
+            console.log("No gym plan found, will auto-generate");
             setIsLoadingPlans(prev => ({ ...prev, gym: false }));
           }
         } else {
@@ -260,6 +263,50 @@ export default function ExercisePlanPage() {
       setSelectedDay(null);
     }
   }, [activeTab, parsedPlan, selectedDay]);
+
+  // Auto-generate plans when health metrics are loaded and no plans exist
+  useEffect(() => {
+    const autoGeneratePlans = async () => {
+      // Only proceed if health metrics are loaded, not currently loading metrics, and neither plan is generating
+      if (!healthMetrics || isLoadingMetrics || isGenerating.home || isGenerating.gym) return;
+      
+      // Check if both plan loading states are complete
+      if (!isLoadingPlans.home && !isLoadingPlans.gym) {
+        const needsHomePlan = !parsedPlan.home || parsedPlan.home.length === 0;
+        const needsGymPlan = !parsedPlan.gym || parsedPlan.gym.length === 0;
+        
+        // Auto-generate home plan if needed and no generated plan exists yet
+        if (needsHomePlan && !generatedPlan.home) {
+          console.log("Auto-generating home plan...");
+          try {
+            await handleGeneratePlan('home');
+          } catch (error) {
+            console.error("Error auto-generating home plan:", error);
+          }
+        }
+        
+        // Auto-generate gym plan if needed and no generated plan exists yet
+        if (needsGymPlan && !generatedPlan.gym) {
+          console.log("Auto-generating gym plan...");
+          // Add a small delay to avoid overwhelming the system if both plans need generation
+          const delay = needsHomePlan && !generatedPlan.home ? 3000 : 1000;
+          
+          setTimeout(async () => {
+            // Double-check conditions after delay
+            if (!isGenerating.gym && !generatedPlan.gym && (!parsedPlan.gym || parsedPlan.gym.length === 0)) {
+              try {
+                await handleGeneratePlan('gym');
+              } catch (error) {
+                console.error("Error auto-generating gym plan:", error);
+              }
+            }
+          }, delay);
+        }
+      }
+    };
+    
+    autoGeneratePlans();
+  }, [healthMetrics, isLoadingMetrics, isLoadingPlans.home, isLoadingPlans.gym]);
 
   // New function to replace placeholders with actual exercises from database
   const enrichPlanWithDatabaseExercises = async (parsedPlan: DayPlan[], environment: Environment): Promise<DayPlan[]> => {
@@ -374,6 +421,12 @@ export default function ExercisePlanPage() {
         variant: "destructive"
       })
       return
+    }
+    
+    // Prevent multiple generations for the same environment
+    if (isGenerating[environment]) {
+      console.log(`Plan generation already in progress for ${environment}`);
+      return;
     }
     
     try {
@@ -792,15 +845,15 @@ export default function ExercisePlanPage() {
   }, []);
 
   return (
-    <div className="container mx-auto py-6 space-y-6 max-w-7xl">
+    <div className="container mx-auto py-4 px-4 sm:py-6 md:py-6 space-y-4 md:space-y-6 max-w-7xl">
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Personalized Exercise Plan</h1>
-          <p className="text-muted-foreground">Custom workouts designed for your fitness level and goals</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">Personalized Exercise Plan</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Custom workouts designed for your fitness level and goals</p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {(generatedPlan.home || generatedPlan.gym) && (
             <>
               <Button 
@@ -809,8 +862,8 @@ export default function ExercisePlanPage() {
                 onClick={handlePrintPlan}
                 className="gap-1"
               >
-                <Printer className="h-4 w-4" />
-                <span className="hidden sm:block">Print</span>
+                <Printer className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:block text-xs sm:text-sm">Print</span>
               </Button>
               <Button 
                 variant="outline" 
@@ -819,8 +872,8 @@ export default function ExercisePlanPage() {
                 disabled={!generatedPlan[activeTab] || isSaving}
                 className="gap-1"
               >
-                <SaveIcon className="h-4 w-4" />
-                <span className="hidden sm:block">{isSaving ? "Saving..." : "Save"}</span>
+                <SaveIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:block text-xs sm:text-sm">{isSaving ? "Saving..." : "Save"}</span>
               </Button>
             </>
           )}
@@ -829,48 +882,53 @@ export default function ExercisePlanPage() {
 
       {/* Health metrics and quick guide */}
       <Card>
-        <CardHeader>
-          <CardTitle>Your Health Profile</CardTitle>
-          <CardDescription>Used to create your personalized plan</CardDescription>
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="text-base md:text-lg">Your Health Profile</CardTitle>
+          <CardDescription className="text-sm">Used to create your personalized plan</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingMetrics ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {[1, 2, 3, 4, 5, 6].map(i => (
-                <Skeleton key={i} className="h-12" />
+                <Skeleton key={i} className="h-10 md:h-12" />
               ))}
             </div>
           ) : healthMetrics ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div className="flex justify-between p-2 border rounded">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 text-xs sm:text-sm">
+              <div className="flex justify-between p-2 md:p-3 border rounded text-xs sm:text-sm">
                 <span className="font-medium">Age:</span>
                 <span>{healthMetrics.age} years</span>
               </div>
-              <div className="flex justify-between p-2 border rounded">
+              <div className="flex justify-between p-2 md:p-3 border rounded text-xs sm:text-sm">
                 <span className="font-medium">Gender:</span>
                 <span>{healthMetrics.gender}</span>
               </div>
-              <div className="flex justify-between p-2 border rounded">
+              <div className="flex justify-between p-2 md:p-3 border rounded text-xs sm:text-sm">
                 <span className="font-medium">Height:</span>
                 <span>{healthMetrics.height} cm</span>
               </div>
-              <div className="flex justify-between p-2 border rounded">
+              <div className="flex justify-between p-2 md:p-3 border rounded text-xs sm:text-sm">
                 <span className="font-medium">Weight:</span>
                 <span>{healthMetrics.weight} kg</span>
               </div>
-              <div className="flex justify-between p-2 border rounded">
+              <div className="flex justify-between p-2 md:p-3 border rounded text-xs sm:text-sm">
                 <span className="font-medium">Activity Level:</span>
-                <span>{healthMetrics.activityLevel}</span>
+                <span className="truncate ml-2">{healthMetrics.activityLevel}</span>
               </div>
-              <div className="flex justify-between p-2 border rounded">
+              <div className="flex justify-between p-2 md:p-3 border rounded text-xs sm:text-sm">
                 <span className="font-medium">Fitness Goals:</span>
-                <span>{healthMetrics.fitnessGoals || "Not specified"}</span>
+                <span className="truncate ml-2">{healthMetrics.fitnessGoals || "Not specified"}</span>
               </div>
             </div>
           ) : (
             <div className="text-center p-4">
-              <p>No health metrics available. Please complete your health profile.</p>
-              <Button variant="outline" className="mt-2" onClick={() => window.location.href = '/initial-health-form'}>
+              <p className="text-sm">No health metrics available. Please complete your health profile.</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="mt-2 text-xs sm:text-sm" 
+                onClick={() => window.location.href = '/initial-health-form'}
+              >
                 Complete Health Profile
               </Button>
             </div>
@@ -884,75 +942,81 @@ export default function ExercisePlanPage() {
         onValueChange={(value) => {
           setActiveTab(value as Environment);
         }} 
-        className="space-y-6"
+        className="space-y-4 md:space-y-6"
       >
-        <TabsList className="grid w-full md:w-96 grid-cols-2">
-          <TabsTrigger value="home" className="flex items-center gap-2">
-            <DumbbellIcon className="h-4 w-4" />
+        <TabsList className="grid w-full sm:w-96 grid-cols-2">
+          <TabsTrigger value="home" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <DumbbellIcon className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>Home Workout</span>
           </TabsTrigger>
-          <TabsTrigger value="gym" className="flex items-center gap-2">
-            <Dumbbell className="h-4 w-4" />
+          <TabsTrigger value="gym" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <Dumbbell className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>Gym Workout</span>
           </TabsTrigger>
         </TabsList>
         
         {/* Home Tab Content */}
         <TabsContent value="home">
-          {isLoadingPlans.home ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg bg-muted/10">
-              <Skeleton className="h-24 w-24 rounded-full mb-4" />
-              <Skeleton className="h-8 w-64 mb-4" />
-              <Skeleton className="h-6 w-48 mb-2" />
-              <Skeleton className="h-10 w-40" />
+          {isLoadingPlans.home || isGenerating.home ? (
+            <div className="flex flex-col items-center justify-center p-8 md:p-12 text-center border rounded-lg bg-muted/10">
+              <Loader2 className="h-8 w-8 md:h-12 md:w-12 animate-spin text-primary mb-3 md:mb-4" />
+              <h3 className="text-base md:text-lg font-semibold mb-2">
+                {isGenerating.home ? "Generating Your Home Workout Plan" : "Loading Exercise Plan"}
+              </h3>
+              <p className="text-sm md:text-base text-muted-foreground max-w-sm md:max-w-md px-2">
+                {isGenerating.home 
+                  ? "Your personalized home exercise plan is being generated based on your fitness level and goals. Please wait..."
+                  : "Loading your existing exercise plan..."
+                }
+              </p>
             </div>
           ) : !parsedPlan.home || parsedPlan.home.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg bg-muted/10">
+            <div className="flex flex-col items-center justify-center p-8 md:p-12 text-center border rounded-lg bg-muted/10">
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <DumbbellIcon className="h-16 w-16 text-muted-foreground mb-6" />
-                <h2 className="text-2xl font-bold mb-2">Create Your Home Workout Plan</h2>
-                <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                <DumbbellIcon className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground mb-4 md:mb-6" />
+                <h2 className="text-lg md:text-2xl font-bold mb-2">Create Your Home Workout Plan</h2>
+                <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8 max-w-xs md:max-w-md mx-auto">
                   Generate a customized exercise plan designed specifically for your fitness level and goals, using minimal equipment at home.
                 </p>
                 <Button 
-                  size="lg"
+                  size="sm"
                   onClick={() => handleGeneratePlan('home')}
                   disabled={isGenerating.home || isLoadingMetrics || !healthMetrics}
-                  className="gap-2"
+                  className="gap-2 w-full sm:w-auto"
                 >
                   {isGenerating.home 
-                    ? <>Generating <Loader className="h-4 w-4 animate-spin" /></> 
-                    : <>Generate Home Plan <ChevronRight className="h-4 w-4" /></>
+                    ? <>Generating <Loader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /></> 
+                    : <>Generate Home Plan <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" /></>
                   }
                 </Button>
               </motion.div>
             </div>
           ) : (
-            <div ref={printRef} className="space-y-6">
+            <div ref={printRef} className="space-y-4 md:space-y-6">
               {/* Day selection tabs */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold">Your 7-Day Home Workout Plan</h2>
+              <div className="flex flex-col gap-3 md:gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                  <h2 className="text-lg md:text-xl font-bold">Your 7-Day Home Workout Plan</h2>
                   <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={() => handleGeneratePlan('home')}
                     disabled={isGenerating.home}
-                    className="gap-1"
+                    className="gap-1 w-full sm:w-auto"
                   >
-                    <RefreshCcw className="h-4 w-4" />
-                    <span className="hidden sm:inline">{isGenerating.home ? "Generating..." : "Regenerate Plan"}</span>
+                    <RefreshCcw className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="text-xs sm:text-sm">{isGenerating.home ? "Generating..." : "Regenerate Plan"}</span>
                   </Button>
                 </div>
                 
                 {/* Only show day selection if we have days in the plan */}
                 {parsedPlan.home && parsedPlan.home.length > 0 && (
-                  <div className="overflow-auto pb-2">
-                    <div className="flex gap-2 min-w-max">
+                  <div className="overflow-x-auto pb-2">
+                    <div className="flex gap-2 min-w-max px-1">
                       {parsedPlan.home.map((day, index) => (
                         <motion.button
                           key={day.day}
@@ -960,14 +1024,15 @@ export default function ExercisePlanPage() {
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setSelectedDay(day.day)}
                           className={cn(
-                            "px-4 py-2 rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-1 transition-colors",
+                            "px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium focus-visible:outline-none focus-visible:ring-1 transition-colors whitespace-nowrap",
                             selectedDay === day.day
                               ? "bg-primary text-primary-foreground shadow-md"
                               : "bg-muted hover:bg-muted/80"
                           )}
                         >
-                          {day.day}
-                          {day.focus.includes('Rest') && <span> (Rest)</span>}
+                          <span className="hidden sm:inline">{day.day}</span>
+                          <span className="sm:hidden">{day.day.replace('Day ', 'D')}</span>
+                          {day.focus.includes('Rest') && <span className="ml-1">(Rest)</span>}
                         </motion.button>
                       ))}
                     </div>
@@ -1161,60 +1226,66 @@ export default function ExercisePlanPage() {
         
         {/* Gym Tab Content */}
         <TabsContent value="gym">
-          {isLoadingPlans.gym ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg bg-muted/10">
-              <Skeleton className="h-24 w-24 rounded-full mb-4" />
-              <Skeleton className="h-8 w-64 mb-4" />
-              <Skeleton className="h-6 w-48 mb-2" />
-              <Skeleton className="h-10 w-40" />
+          {isLoadingPlans.gym || isGenerating.gym ? (
+            <div className="flex flex-col items-center justify-center p-8 md:p-12 text-center border rounded-lg bg-muted/10">
+              <Loader2 className="h-8 w-8 md:h-12 md:w-12 animate-spin text-primary mb-3 md:mb-4" />
+              <h3 className="text-base md:text-lg font-semibold mb-2">
+                {isGenerating.gym ? "Generating Your Gym Workout Plan" : "Loading Exercise Plan"}
+              </h3>
+              <p className="text-sm md:text-base text-muted-foreground max-w-sm md:max-w-md px-2">
+                {isGenerating.gym 
+                  ? "Your personalized gym exercise plan is being generated based on your fitness level and goals. Please wait..."
+                  : "Loading your existing exercise plan..."
+                }
+              </p>
             </div>
           ) : !parsedPlan.gym || parsedPlan.gym.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg bg-muted/10">
+            <div className="flex flex-col items-center justify-center p-8 md:p-12 text-center border rounded-lg bg-muted/10">
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <Dumbbell className="h-16 w-16 text-muted-foreground mb-6" />
-                <h2 className="text-2xl font-bold mb-2">Create Your Gym Workout Plan</h2>
-                <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                <Dumbbell className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground mb-4 md:mb-6" />
+                <h2 className="text-lg md:text-2xl font-bold mb-2">Create Your Gym Workout Plan</h2>
+                <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8 max-w-xs md:max-w-md mx-auto">
                   Generate a customized exercise plan optimized for your fitness level, using standard gym equipment.
                 </p>
                 <Button 
-                  size="lg"
+                  size="sm"
                   onClick={() => handleGeneratePlan('gym')}
                   disabled={isGenerating.gym || isLoadingMetrics || !healthMetrics}
-                  className="gap-2"
+                  className="gap-2 w-full sm:w-auto"
                 >
                   {isGenerating.gym 
-                    ? <>Generating <Loader className="h-4 w-4 animate-spin" /></> 
-                    : <>Generate Gym Plan <ChevronRight className="h-4 w-4" /></>
+                    ? <>Generating <Loader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /></> 
+                    : <>Generate Gym Plan <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" /></>
                   }
                 </Button>
               </motion.div>
             </div>
           ) : (
-            <div ref={printRef} className="space-y-6">
+            <div ref={printRef} className="space-y-4 md:space-y-6">
               {/* Day selection tabs */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold">Your 7-Day Gym Workout Plan</h2>
+              <div className="flex flex-col gap-3 md:gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+                  <h2 className="text-lg md:text-xl font-bold">Your 7-Day Gym Workout Plan</h2>
                   <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={() => handleGeneratePlan('gym')}
                     disabled={isGenerating.gym}
-                    className="gap-1"
+                    className="gap-1 w-full sm:w-auto"
                   >
-                    <RefreshCcw className="h-4 w-4" />
-                    <span className="hidden sm:inline">{isGenerating.gym ? "Generating..." : "Regenerate Plan"}</span>
+                    <RefreshCcw className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="text-xs sm:text-sm">{isGenerating.gym ? "Generating..." : "Regenerate Plan"}</span>
                   </Button>
                 </div>
                 
                 {/* Only show day selection if we have days in the plan */}
                 {parsedPlan.gym && parsedPlan.gym.length > 0 && (
-                  <div className="overflow-auto pb-2">
-                    <div className="flex gap-2 min-w-max">
+                  <div className="overflow-x-auto pb-2">
+                    <div className="flex gap-2 min-w-max px-1">
                       {parsedPlan.gym.map((day, index) => (
                         <motion.button
                           key={day.day}
@@ -1222,14 +1293,15 @@ export default function ExercisePlanPage() {
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setSelectedDay(day.day)}
                           className={cn(
-                            "px-4 py-2 rounded-full text-sm font-medium focus-visible:outline-none focus-visible:ring-1 transition-colors",
+                            "px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium focus-visible:outline-none focus-visible:ring-1 transition-colors whitespace-nowrap",
                             selectedDay === day.day
                               ? "bg-primary text-primary-foreground shadow-md"
                               : "bg-muted hover:bg-muted/80"
                           )}
                         >
-                          {day.day}
-                          {day.focus.includes('Rest') && <span> (Rest)</span>}
+                          <span className="hidden sm:inline">{day.day}</span>
+                          <span className="sm:hidden">{day.day.replace('Day ', 'D')}</span>
+                          {day.focus.includes('Rest') && <span className="ml-1">(Rest)</span>}
                         </motion.button>
                       ))}
                     </div>
